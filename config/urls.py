@@ -16,6 +16,8 @@ urlpatterns = [
     path('jobs/', include('apps.jobs.urls', namespace='jobs')),
     path('dashboard/', include('apps.dashboard.urls', namespace='dashboard')),
     path('notifications/', include('apps.notifications.urls', namespace='notifications')),
+    path('recommendations/', include('apps.recommendations.urls', namespace='recommendations')),
+
 ]
 
 # Serve media files in development ONLY
