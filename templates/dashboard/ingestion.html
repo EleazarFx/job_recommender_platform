@@ -1,0 +1,352 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Data Ingestion - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4">
+        <i class="fas fa-database"></i> Data Ingestion
+    </h1>
+    
+    <!-- CSV Upload Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-csv"></i> Upload CSV File
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="csvUploadForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Select CSV File</label>
+                            {{ csv_form.uploaded_file }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Column Mapping (JSON)</label>
+                            {{ csv_form.column_mapping }}
+                            <small class="text-muted">
+                                Map CSV column names to database fields. 
+                                <button type="button" class="btn btn-sm btn-link" id="previewCsvBtn">
+                                    Preview Columns
+                                </button>
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> Process CSV
+                        </button>
+                    </form>
+                    
+                    <!-- Preview Modal -->
+                    <div class="modal fade" id="csvPreviewModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">CSV Column Preview</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <h6>Detected Columns:</h6>
+                                    <div id="columnList" class="mb-3"></div>
+                                    
+                                    <h6>Sample Data:</h6>
+                                    <div id="sampleData" class="table-responsive"></div>
+                                    
+                                    <button type="button" class="btn btn-success mt-3" id="generateMappingBtn">
+                                        Generate Mapping Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus"></i> Add Data Source
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'dashboard:create_source' %}">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Source Name</label>
+                            {{ source_form.name }}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Source Type</label>
+                                {{ source_form.source_type }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Sync Frequency</label>
+                                {{ source_form.sync_frequency }}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">URL</label>
+                            {{ source_form.url }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">API Key (optional)</label>
+                            {{ source_form.api_key }}
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Save Data Source
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Data Sources List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Configured Data Sources</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Frequency</th>
+                                    <th>Status</th>
+                                    <th>Last Sync</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for source in data_sources %}
+                                <tr>
+                                    <td>{{ source.name }}</td>
+                                    <td>{{ source.get_source_type_display }}</td>
+                                    <td>{{ source.get_sync_frequency_display }}</td>
+                                    <td>
+                                        {% if source.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if source.last_sync %}
+                                        {{ source.last_sync|date:"Y-m-d H:i" }}
+                                        {% else %}
+                                        Never
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'dashboard:update_source' source.id %}" class="btn btn-sm btn-outline-primary">
+                                            Edit
+                                        </a>
+                                        {% if source.source_type == 'API_JSON' %}
+                                        <form method="post" action="{% url 'dashboard:trigger_sync' source.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                Sync Now
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">
+                                        No data sources configured yet
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Ingestion Jobs -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Ingestion Jobs</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Source</th>
+                                    <th>Status</th>
+                                    <th>Records</th>
+                                    <th>Started</th>
+                                    <th>Completed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in recent_jobs %}
+                                <tr>
+                                    <td>{{ job.data_source.name|default:"Manual Upload" }}</td>
+                                    <td>
+                                        {% if job.status == 'COMPLETED' %}
+                                        <span class="badge bg-success">Completed</span>
+                                        {% elif job.status == 'PROCESSING' %}
+                                        <span class="badge bg-info">Processing</span>
+                                        {% elif job.status == 'FAILED' %}
+                                        <span class="badge bg-danger">Failed</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ job.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ job.created_records }} created
+                                        {% if job.failed_records %}
+                                        <span class="text-danger">({{ job.failed_records }} failed)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ job.started_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ job.completed_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        No ingestion jobs yet
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// CSV Preview functionality
+document.getElementById('previewCsvBtn').addEventListener('click', function() {
+    const fileInput = document.querySelector('input[type="file"]');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a CSV file first');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('csv_file', file);
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    
+    fetch('{% url "dashboard:preview_csv" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Display columns
+            const columnList = document.getElementById('columnList');
+            columnList.innerHTML = data.columns.map(col => 
+                `<span class="badge bg-secondary me-1">${col}</span>`
+            ).join('');
+            
+            // Display sample data
+            const sampleData = document.getElementById('sampleData');
+            if (data.sample_data.length > 0) {
+                let html = '<table class="table table-sm"><thead><tr>';
+                data.columns.forEach(col => html += `<th>${col}</th>`);
+                html += '</tr></thead><tbody>';
+                
+                data.sample_data.forEach(row => {
+                    html += '<tr>';
+                    data.columns.forEach(col => html += `<td>${row[col] || ''}</td>`);
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                sampleData.innerHTML = html;
+            }
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('csvPreviewModal')).show();
+            
+            // Generate mapping template
+            document.getElementById('generateMappingBtn').onclick = function() {
+                const mapping = {};
+                data.columns.forEach(col => {
+                    // Simple heuristic mapping
+                    const lowerCol = col.toLowerCase();
+                    if (lowerCol.includes('title') || lowerCol.includes('position')) {
+                        mapping[col] = 'title';
+                    } else if (lowerCol.includes('company')) {
+                        mapping[col] = 'company_name';
+                    } else if (lowerCol.includes('skill')) {
+                        mapping[col] = 'required_skills';
+                    } else if (lowerCol.includes('location') || lowerCol.includes('city')) {
+                        mapping[col] = 'city';
+                    } else if (lowerCol.includes('description')) {
+                        mapping[col] = 'description';
+                    } else if (lowerCol.includes('expiry') || lowerCol.includes('deadline')) {
+                        mapping[col] = 'expiry_date';
+                    } else {
+                        mapping[col] = '';
+                    }
+                });
+                
+                document.querySelector('textarea[name="column_mapping"]').value = JSON.stringify(mapping, null, 2);
+                bootstrap.Modal.getInstance(document.getElementById('csvPreviewModal')).hide();
+            };
+        } else {
+            alert('Error previewing CSV: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+});
+
+// CSV Upload form submission
+document.getElementById('csvUploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('{% url "dashboard:upload_csv" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + JSON.stringify(data.errors));
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+    });
+});
+</script>
+{% endblock %}

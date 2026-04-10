@@ -1,0 +1,232 @@
+/* Custom CSS for Job Recommendation Platform */
+
+/* Google Font */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Card hover effects */
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Form styling */
+.form-control:focus,
+.form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #1a1a1a;
+    --bs-body-color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .card {
+    background-color: #2d2d2d;
+    border-color: #404040;
+}
+
+[data-bs-theme="dark"] .bg-light {
+    background-color: #2d2d2d !important;
+}
+
+[data-bs-theme="dark"] .border {
+    border-color: #404040 !important;
+}
+
+[data-bs-theme="dark"] .text-muted {
+    color: #b0b0b0 !important;
+}
+
+/* Button styling */
+.btn {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0b5ed7 0%, #0a58ca 100%);
+    transform: translateY(-1px);
+}
+
+/* Navigation */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Trust indicators */
+.trust-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.trust-badge.verified {
+    background-color: #198754;
+    color: white;
+}
+
+.trust-badge.warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+/* Job cards */
+.job-card {
+    border-left: 3px solid #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.job-card.expired {
+    border-left-color: #dc3545;
+    opacity: 0.7;
+}
+
+.job-card.fresh {
+    border-left-color: #198754;
+}
+
+/* Skill tags */
+.skill-tag {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    margin: 0.25rem;
+    background-color: #e9ecef;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    color: #495057;
+    transition: all 0.2s;
+}
+
+.skill-tag:hover {
+    background-color: #0d6efd;
+    color: white;
+    cursor: pointer;
+}
+
+[data-bs-theme="dark"] .skill-tag {
+    background-color: #404040;
+    color: #e0e0e0;
+}
+
+/* Loading spinner */
+.spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Print styles */
+@media print {
+
+    .navbar,
+    .btn,
+    footer {
+        display: none !important;
+    }
+
+    .card {
+        border: 1px solid #ddd;
+        box-shadow: none;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+/* Accessibility focus styles */
+*:focus-visible {
+    outline: 3px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+/* Profile completion progress */
+.progress {
+    height: 0.5rem;
+    border-radius: 1rem;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #0d6efd 0%, #0dcaf0 100%);
+}
+
+/* Notification badge */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    padding: 3px 6px;
+    border-radius: 50%;
+    background: #dc3545;
+    color: white;
+    font-size: 0.7rem;
+}

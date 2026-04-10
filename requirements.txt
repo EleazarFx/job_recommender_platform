@@ -25,3 +25,6 @@ django-background-tasks==1.2.5
 # Development Tools
 django-debug-toolbar==4.3.0
 ipython==8.24.0
+
+#other
+requests
