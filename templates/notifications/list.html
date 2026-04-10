@@ -1,0 +1,177 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Notifications - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-bell"></i> Notifications
+                    {% if unread_count %}
+                    <span class="badge bg-danger ms-2">{{ unread_count }}</span>
+                    {% endif %}
+                </h1>
+                
+                <div>
+                    {% if unread_count %}
+                    <button class="btn btn-outline-primary btn-sm" id="markAllReadBtn">
+                        <i class="fas fa-check-double"></i> Mark All Read
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'notifications:preferences' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-cog"></i> Preferences
+                    </a>
+                </div>
+            </div>
+            
+            {% if notifications %}
+                {% for notification in notifications %}
+                <div class="card mb-2 {% if not notification.is_read %}border-primary bg-light{% endif %}" 
+                     data-notification-id="{{ notification.pk }}">
+                    <div class="card-body">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                {% if notification.type == 'JOB_MATCH' %}
+                                <i class="fas fa-robot fa-2x text-primary"></i>
+                                {% elif notification.type == 'JOB_ALERT' %}
+                                <i class="fas fa-bell fa-2x text-success"></i>
+                                {% elif notification.type == 'APPLICATION_UPDATE' %}
+                                <i class="fas fa-file-alt fa-2x text-info"></i>
+                                {% else %}
+                                <i class="fas fa-info-circle fa-2x text-secondary"></i>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title mb-1">{{ notification.title }}</h5>
+                                    <small class="text-muted">{{ notification.created_at|timesince }} ago</small>
+                                </div>
+                                
+                                <p class="card-text mb-2">{{ notification.message|linebreaksbr }}</p>
+                                
+                                {% if notification.job %}
+                                <a href="{% url 'jobs:detail' notification.job.pk %}" class="btn btn-sm btn-primary">
+                                    View Job
+                                </a>
+                                {% endif %}
+                                
+                                {% if notification.match_score %}
+                                <span class="badge bg-info ms-2">
+                                    {{ notification.match_score|floatformat:0 }}% Match
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if not notification.is_read %}
+                            <div class="ms-3">
+                                <button class="btn btn-sm btn-link mark-read-btn" 
+                                        data-notification-id="{{ notification.pk }}">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Pagination -->
+                {% if notifications.has_other_pages %}
+                <nav class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if notifications.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ notifications.previous_page_number }}">Previous</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in notifications.paginator.page_range %}
+                        <li class="page-item {% if notifications.number == num %}active{% endif %}">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endfor %}
+                        
+                        {% if notifications.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ notifications.next_page_number }}">Next</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                    <h4>No notifications yet</h4>
+                    <p class="text-muted">We'll notify you when jobs match your profile.</p>
+                    <a href="{% url 'jobs:list' %}" class="btn btn-primary">
+                        Browse Jobs
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Mark single notification as read
+document.querySelectorAll('.mark-read-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const notificationId = this.dataset.notificationId;
+        const card = this.closest('.card');
+        
+        fetch(`/notifications/${notificationId}/read/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                card.classList.remove('border-primary', 'bg-light');
+                this.remove();
+                updateUnreadCount();
+            }
+        });
+    });
+});
+
+// Mark all as read
+document.getElementById('markAllReadBtn')?.addEventListener('click', function() {
+    fetch('{% url "notifications:mark_all_read" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+});
+
+function updateUnreadCount() {
+    fetch('{% url "notifications:unread_count" %}')
+        .then(response => response.json())
+        .then(data => {
+            const badge = document.getElementById('notificationCount');
+            if (badge) {
+                badge.textContent = data.count;
+                if (data.count === 0) {
+                    badge.style.display = 'none';
+                } else {
+                    badge.style.display = 'inline';
+                }
+            }
+        });
+}
+</script>
+{% endblock %}

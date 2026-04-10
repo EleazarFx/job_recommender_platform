@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        .job-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            background: #fafafa;
+        }
+        .job-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+        }
+        .company {
+            color: #666;
+            margin: 5px 0;
+        }
+        .match-badge {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .skill-tag {
+            display: inline-block;
+            background: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Your Daily Job Digest</h1>
+        <p>{{ digest.period_end|date:"F j, Y" }}</p>
+    </div>
+    
+    <p>Hello {{ user.first_name|default:user.email }},</p>
+    
+    <p>Here's your daily summary of job matches and updates:</p>
+    
+    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <strong>📊 Today's Summary:</strong><br>
+        • {{ digest.new_jobs_count }} new job matches<br>
+        • {{ digest.job_matches_count }} total matches today<br>
+    </div>
+    
+    {% if high_match_jobs %}
+    <h2>🔥 Top Job Matches for You</h2>
+    
+    {% for job in high_match_jobs %}
+    <div class="job-card">
+        <a href="{{ site_url }}{% url 'jobs:detail' job.pk %}" class="job-title">
+            {{ job.title }}
+        </a>
+        <div class="company">{{ job.company_name }}</div>
+        <div style="margin: 10px 0;">
+            <span class="match-badge">High Match</span>
+            <span style="margin-left: 10px;">📍 {{ job.location_display }}</span>
+        </div>
+        <div>
+            {% for skill in job.get_skills_list|slice:":5" %}
+            <span class="skill-tag">{{ skill }}</span>
+            {% endfor %}
+        </div>
+        <a href="{{ site_url }}{% url 'jobs:detail' job.pk %}" class="btn">
+            View Job Details
+        </a>
+    </div>
+    {% endfor %}
+    {% endif %}
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ site_url }}{% url 'recommendations:recommended' %}" class="btn" 
+           style="background: #28a745;">
+            View All Recommendations
+        </a>
+    </div>
+    
+    <div class="footer">
+        <p>
+            You received this email because you have daily digests enabled.<br>
+            <a href="{{ site_url }}{% url 'notifications:preferences' %}">
+                Manage notification preferences
+            </a>
+        </p>
+        <p>&copy; {{ site_name }}. All rights reserved.</p>
+    </div>
+</body>
+</html>

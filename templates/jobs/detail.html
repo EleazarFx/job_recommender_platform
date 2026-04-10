@@ -1,0 +1,363 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ job.title }} at {{ job.company_name }} - {{ block.super }}{% endblock %}
+
+{% block meta %}
+<meta property="og:title" content="{{ job.title }} at {{ job.company_name }}">
+<meta property="og:description" content="{{ job.description|truncatechars:200 }}">
+<meta property="og:type" content="website">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'jobs:list' %}">Jobs</a></li>
+            {% if job.category %}
+            <li class="breadcrumb-item">
+                <a href="{% url 'jobs:category' job.category.slug %}">{{ job.category.name }}</a>
+            </li>
+            {% endif %}
+            <li class="breadcrumb-item active">{{ job.title }}</li>
+        </ol>
+    </nav>
+    
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Job Header -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h1 class="h2 mb-2">{{ job.title }}</h1>
+                            <h2 class="h5 text-muted mb-3">{{ job.company_name }}</h2>
+                        </div>
+                        
+                        <div class="text-end">
+                            {% if job.is_verified_company %}
+                            <span class="badge bg-success mb-2">
+                                <i class="fas fa-check-circle"></i> Verified Employer
+                            </span>
+                            {% endif %}
+                            <span class="badge bg-info d-block">
+                                <i class="fas fa-shield-alt"></i> Trust Score: {{ job.trust_score }}%
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <i class="fas fa-map-marker-alt text-primary"></i>
+                                <strong>Location:</strong> {{ job.location_display }}
+                                {% if job.is_remote %}
+                                <span class="badge bg-success">Remote</span>
+                                {% endif %}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-briefcase text-primary"></i>
+                                <strong>Job Type:</strong> {{ job.get_job_type_display }}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-chart-line text-primary"></i>
+                                <strong>Experience:</strong> {{ job.get_experience_level_display }}
+                                {% if job.years_of_experience_required %}
+                                ({{ job.years_of_experience_required }}+ years)
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <i class="fas fa-calendar text-primary"></i>
+                                <strong>Posted:</strong> {{ job.date_posted|date:"F j, Y" }}
+                                ({{ job.date_posted|timesince }} ago)
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-hourglass-end text-primary"></i>
+                                <strong>Expires:</strong> {{ job.expiry_date|date:"F j, Y" }}
+                                {% if job.is_expired %}
+                                <span class="badge bg-danger">Expired</span>
+                                {% else %}
+                                <span class="badge bg-warning">{{ job.expiry_date|timeuntil }} left</span>
+                                {% endif %}
+                            </p>
+                            <p class="mb-1">
+                                <i class="fas fa-eye text-primary"></i>
+                                <strong>Views:</strong> {{ job.view_count }}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if user.is_authenticated %}
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" onclick="applyNow()">
+                            <i class="fas fa-paper-plane"></i> Apply Now
+                        </button>
+                        
+                        <button class="btn btn-outline-primary save-job-btn" data-job-id="{{ job.pk }}">
+                            {% if is_saved %}
+                            <i class="fas fa-bookmark"></i> Saved
+                            {% else %}
+                            <i class="far fa-bookmark"></i> Save Job
+                            {% endif %}
+                        </button>
+                        
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reportModal">
+                            <i class="fas fa-flag"></i> Report
+                        </button>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'accounts:login' %}?next={{ request.path }}" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login to Apply
+                    </a>
+                    {% endif %}
+                    
+                    <!-- Match Score for logged-in users -->
+                    {% if match_score %}
+                    <div class="alert alert-info mt-3 mb-0">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-robot fa-2x me-3"></i>
+                            <div>
+                                <strong>{{ match_score.match_score|floatformat:0 }}% Match</strong><br>
+                                <small>{{ match_score.match_reason }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Job Description -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Job Description</h3>
+                </div>
+                <div class="card-body">
+                    {{ job.description|linebreaks }}
+                </div>
+            </div>
+            
+            <!-- Required Skills -->
+            {% if job.required_skills %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Required Skills</h3>
+                </div>
+                <div class="card-body">
+                    {% for skill in job.get_skills_list %}
+                    <span class="skill-tag">{{ skill }}</span>
+                    {% endfor %}
+                    
+                    {% if match_score and match_score.missing_skills %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <small>
+                            <i class="fas fa-info-circle"></i>
+                            You're missing: {{ match_score.missing_skills|join:", " }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Requirements -->
+            {% if job.requirements %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Requirements</h3>
+                </div>
+                <div class="card-body">
+                    {{ job.requirements|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Responsibilities -->
+            {% if job.responsibilities %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Responsibilities</h3>
+                </div>
+                <div class="card-body">
+                    {{ job.responsibilities|linebreaks }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Salary Information -->
+            {% if job.salary_is_displayed and job.salary_min %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Salary</h3>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        <strong>{{ job.salary_min|floatformat:0 }} - {{ job.salary_max|floatformat:0 }}</strong> 
+                        {{ job.salary_currency }} per year
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Company Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">About {{ job.company_name }}</h3>
+                </div>
+                <div class="card-body">
+                    {% if job.company_website %}
+                    <p>
+                        <i class="fas fa-globe"></i>
+                        <a href="{{ job.company_website }}" target="_blank" rel="noopener">
+                            {{ job.company_website }}
+                        </a>
+                    </p>
+                    {% endif %}
+                    
+                    {% if company_jobs %}
+                    <h4 class="h6 mt-3">More jobs from {{ job.company_name }}</h4>
+                    <ul class="list-unstyled">
+                        {% for other_job in company_jobs %}
+                        <li class="mb-2">
+                            <a href="{% url 'jobs:detail' other_job.pk %}">{{ other_job.title }}</a>
+                            <br>
+                            <small class="text-muted">{{ other_job.location_display }}</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Similar Jobs -->
+            {% if similar_jobs %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3 class="h5 mb-0">Similar Jobs</h3>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for similar in similar_jobs %}
+                    <a href="{% url 'jobs:detail' similar.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h4 class="h6 mb-1">{{ similar.title }}</h4>
+                            <small>{{ similar.date_posted|timesince }} ago</small>
+                        </div>
+                        <p class="mb-1 small">{{ similar.company_name }}</p>
+                        <small class="text-muted">
+                            <i class="fas fa-map-marker-alt"></i> {{ similar.location_display }}
+                        </small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Report This Job</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="reportForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Reason for reporting</label>
+                        {{ report_form.reason }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Additional details (optional)</label>
+                        {{ report_form.details }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Submit Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applyNow() {
+    {% if user.is_authenticated %}
+    fetch('{% url "jobs:apply" job.pk %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(() => {
+        {% if job.application_url %}
+        window.open('{{ job.application_url }}', '_blank');
+        {% else %}
+        alert('Please send your application to: {{ job.application_email }}');
+        {% endif %}
+    });
+    {% endif %}
+}
+
+// Save job functionality
+document.querySelector('.save-job-btn')?.addEventListener('click', function() {
+    const btn = this;
+    
+    fetch('{% url "jobs:save" job.pk %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.is_saved) {
+            btn.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-outline-primary');
+        } else {
+            btn.innerHTML = '<i class="far fa-bookmark"></i> Save Job';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+});
+
+// Report form submission
+document.getElementById('reportForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('{% url "jobs:report" job.pk %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            bootstrap.Modal.getInstance(document.getElementById('reportModal')).hide();
+        } else {
+            alert(data.message || 'Error submitting report');
+        }
+    });
+});
+</script>
+{% endblock %}

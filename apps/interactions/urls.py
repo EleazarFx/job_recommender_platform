@@ -1,1 +1,1 @@
-app_name = 'interactions'
+#app_name = 'interactions'
