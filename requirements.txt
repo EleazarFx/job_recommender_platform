@@ -1,0 +1,27 @@
+# Core Django
+Django==5.0.6
+psycopg2-binary==2.9.9
+python-decouple==3.8
+whitenoise==6.7.0
+Pillow==10.3.0
+
+# AI & Data Processing
+pandas==2.2.2
+scikit-learn==1.5.0
+numpy==1.26.4
+
+# Security & Auth
+django-cors-headers==4.3.1
+django-crispy-forms==2.1
+crispy-bootstrap5==2024.2
+
+# File Processing (CV Upload)
+PyPDF2==3.0.1
+python-docx==1.1.0
+
+# Background Tasks (Simple first)
+django-background-tasks==1.2.5
+
+# Development Tools
+django-debug-toolbar==4.3.0
+ipython==8.24.0
