@@ -296,5 +296,17 @@ class ProfileUpdateForm(forms.ModelForm):
             'avatar': forms.FileInput(attrs={'class': 'form-control'}),
             'experience_level': forms.Select(attrs={'class': 'form-select'}),
             'years_of_experience': forms.NumberInput(attrs={'class': 'form-control'}),
-            'preferred_job_types': forms.SelectMultiple(attrs={'class': 'form-select'}),
         }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set initial value for preferred_job_types from JSON field
+        if self.instance and self.instance.preferred_job_types:
+            self.fields['preferred_job_types'].initial = self.instance.preferred_job_types
+    
+    def clean_preferred_job_types(self):
+        """Ensure preferred_job_types is always a list."""
+        value = self.cleaned_data.get('preferred_job_types', [])
+        if value is None:
+            return []
+        return value

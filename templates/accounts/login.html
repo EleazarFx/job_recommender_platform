@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load crispy_forms_tags %}
 
-{% block title %}Sign Up - {{ block.super }}{% endblock %}
+{% block title %}Login - {{ block.super }}{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
@@ -10,98 +10,31 @@
             <div class="card shadow-sm">
                 <div class="card-body p-4">
                     <h2 class="card-title text-center mb-4">
-                        <i class="fas fa-user-plus text-primary"></i> Create Your Account
+                        <i class="fas fa-sign-in-alt text-primary"></i> Sign In to Your Account
                     </h2>
                     
                     <form method="post" novalidate>
                         {% csrf_token %}
+                        {{ form|crispy }}
                         
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">First Name</label>
-                                {{ form.first_name }}
-                                {% if form.first_name.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.first_name.errors|join:", " }}
-                                </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Last Name</label>
-                                {{ form.last_name }}
-                                {% if form.last_name.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.last_name.errors|join:", " }}
-                                </div>
-                                {% endif %}
-                            </div>
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Email Address</label>
-                            {{ form.email }}
-                            {% if form.email.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.email.errors|join:", " }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">I am a...</label>
-                            {{ form.user_type }}
-                            {% if form.user_type.errors %}
-                            <div class="invalid-feedback d-block">
-                                {{ form.user_type.errors|join:", " }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Password</label>
-                                {{ form.password1 }}
-                                {% if form.password1.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.password1.errors|join:", " }}
-                                </div>
-                                {% endif %}
-                                <small class="form-text text-muted">
-                                    Minimum 8 characters, not entirely numeric
-                                </small>
-                            </div>
-                            
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Confirm Password</label>
-                                {{ form.password2 }}
-                                {% if form.password2.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {{ form.password2.errors|join:", " }}
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="agreeTerms" required>
-                            <label class="form-check-label" for="agreeTerms">
-                                I agree to the <a href="{% url 'core:terms' %}">Terms of Service</a> and 
-                                <a href="{% url 'core:privacy' %}">Privacy Policy</a>
-                            </label>
-                        </div>
+                        {% endif %}
                         
                         <button type="submit" class="btn btn-primary w-100 mb-3">
-                            <i class="fas fa-user-plus"></i> Create Account
+                            <i class="fas fa-sign-in-alt"></i> Sign In
                         </button>
                         
                         <hr class="my-4">
                         
                         <div class="text-center">
-                            <p class="mb-0">Already have an account?</p>
-                            <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary w-100 mt-2">
-                                <i class="fas fa-sign-in-alt"></i> Login
-                            </a>
+                            <p class="mb-0">Need an account? <a href="{% url 'accounts:register' %}">Sign Up</a></p>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <a href="{% url 'accounts:password_reset_request' %}">Forgot Password?</a>
                         </div>
                     </form>
                 </div>

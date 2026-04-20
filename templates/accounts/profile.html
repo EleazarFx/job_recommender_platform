@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load static %}
 
 {% block title %}My Profile - {{ block.super }}{% endblock %}
 
@@ -40,42 +41,82 @@
                     
                     <div class="row">
                         <div class="col-md-6">
-                            <h5>Skills</h5>
+                            <h5><i class="fas fa-code"></i> Skills</h5>
                             <div class="mb-3">
                                 {% for skill in skills_list %}
-                                <span class="skill-tag">{{ skill }}</span>
+                                <span class="badge bg-primary text-white p-2 me-1 mb-1">{{ skill }}</span>
                                 {% empty %}
                                 <p class="text-muted">No skills added yet.</p>
                                 {% endfor %}
                             </div>
                             
-                            <h5>Qualifications</h5>
+                            <h5 class="mt-3"><i class="fas fa-graduation-cap"></i> Qualifications</h5>
                             <p>{{ profile.qualifications|default:"Not specified"|linebreaksbr }}</p>
                         </div>
                         
                         <div class="col-md-6">
-                            <h5>Experience</h5>
+                            <h5><i class="fas fa-chart-line"></i> Experience</h5>
                             <p>
                                 <strong>Level:</strong> {{ profile.get_experience_level_display|default:"Not specified" }}<br>
-                                <strong>Years:</strong> {{ profile.years_of_experience|default:"0" }} years
+                                <strong>Years:</strong> {{ profile.years_of_experience }} years
                             </p>
                             
-                            <h5>Preferences</h5>
+                            <h5 class="mt-3"><i class="fas fa-map-marker-alt"></i> Location Preferences</h5>
                             <p>
-                                <strong>Locations:</strong><br>
                                 {% for loc in locations_list %}
-                                <span class="badge bg-light text-dark me-1">{{ loc }}</span>
+                                <span class="badge bg-info text-white p-2 me-1 mb-1">{{ loc }}</span>
                                 {% empty %}
                                 <span class="text-muted">No preferences set</span>
                                 {% endfor %}
                             </p>
+                            
+                            <h5 class="mt-3"><i class="fas fa-briefcase"></i> Job Type Preferences</h5>
                             <p>
-                                <strong>Job Types:</strong><br>
                                 {% for job_type in profile.preferred_job_types %}
-                                <span class="badge bg-info me-1">{{ job_type }}</span>
+                                    {% if job_type == 'FULL_TIME' %}
+                                    <span class="badge bg-primary text-white p-2 me-1 mb-1">Full Time</span>
+                                    {% elif job_type == 'PART_TIME' %}
+                                    <span class="badge bg-info text-white p-2 me-1 mb-1">Part Time</span>
+                                    {% elif job_type == 'CONTRACT' %}
+                                    <span class="badge bg-warning text-dark p-2 me-1 mb-1">Contract</span>
+                                    {% elif job_type == 'INTERNSHIP' %}
+                                    <span class="badge bg-success text-white p-2 me-1 mb-1">Internship</span>
+                                    {% elif job_type == 'REMOTE' %}
+                                    <span class="badge bg-secondary text-white p-2 me-1 mb-1">Remote</span>
+                                    {% elif job_type == 'HYBRID' %}
+                                    <span class="badge bg-dark text-white p-2 me-1 mb-1">Hybrid</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark p-2 me-1 mb-1">{{ job_type }}</span>
+                                    {% endif %}
                                 {% empty %}
                                 <span class="text-muted">No preferences set</span>
                                 {% endfor %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Account Information -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h5><i class="fas fa-user"></i> Account Information</h5>
+                            <p>
+                                <strong>Account Type:</strong> 
+                                {% if user.user_type == 'JOB_SEEKER' %}
+                                <span class="badge bg-success">Job Seeker</span>
+                                {% elif user.user_type == 'EMPLOYER' %}
+                                <span class="badge bg-primary">Employer</span>
+                                {% if user.is_verified_employer %}
+                                <span class="badge bg-success"><i class="fas fa-check-circle"></i> Verified</span>
+                                {% endif %}
+                                {% elif user.user_type == 'ADMIN' %}
+                                <span class="badge bg-danger">Administrator</span>
+                                {% endif %}
+                            </p>
+                            <p>
+                                <strong>Member Since:</strong> {{ user.date_joined|date:"F j, Y" }}<br>
+                                <strong>Last Active:</strong> {{ user.last_activity|date:"F j, Y" }}
                             </p>
                         </div>
                     </div>
@@ -89,7 +130,28 @@
                         <a href="{% url 'recommendations:recommended' %}" class="btn btn-success">
                             <i class="fas fa-robot"></i> View Recommendations
                         </a>
+                        <a href="{% url 'notifications:preferences' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-bell"></i> Notification Settings
+                        </a>
                     </div>
+                </div>
+            </div>
+            
+            <!-- Skill Gap Insights Card -->
+            <div class="card shadow-sm mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb"></i> Skill Insights
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        As you view and save jobs, we'll analyze the skills employers are looking for 
+                        and show you insights here. No teaching—just facts about what's in demand.
+                    </p>
+                    <a href="{% url 'recommendations:skill_gaps' %}" class="btn btn-outline-info btn-sm">
+                        View Full Analysis
+                    </a>
                 </div>
             </div>
         </div>

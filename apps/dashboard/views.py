@@ -1,30 +1,18 @@
 """
 Admin dashboard views for managing jobs, users, and data ingestion.
+Security: All views require staff or superuser access.
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
-
-
-def superuser_required(view_func):
-    """
-    Decorator to restrict access to superusers only.
-    """
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_superuser:
-            from django.contrib import messages
-            messages.error(request, "Superuser access required.")
-            from django.shortcuts import redirect
-            return redirect('core:home')
-        return view_func(request, *args, **kwargs)
-    return wrapper
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q
 from django.core.paginator import Paginator
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 from django.urls import reverse_lazy
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.views.generic import CreateView, UpdateView
 from django.contrib.auth.mixins import UserPassesTestMixin
 from datetime import timedelta
 import json
@@ -36,35 +24,94 @@ from apps.ingestion.forms import DataSourceForm, CSVUploadForm
 from apps.ingestion.tasks import process_csv_upload, fetch_api_data
 
 
+# ============================================
+# CUSTOM DECORATORS
+# ============================================
+
+def superuser_required(view_func):
+    """
+    Decorator to restrict access to superusers only.
+    Use this for critical admin functions like creating other admins.
+    """
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to continue.")
+            return redirect('accounts:login')
+        
+        if not request.user.is_superuser:
+            messages.error(request, "Superuser access required for this action.")
+            return redirect('dashboard:home')
+        
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def admin_or_staff_required(view_func):
+    """
+    Decorator that requires either superuser OR staff status.
+    More flexible than @staff_member_required alone.
+    """
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.error(request, "Please log in to continue.")
+            return redirect('accounts:login')
+        
+        if not (request.user.is_staff or request.user.is_superuser):
+            messages.error(request, "You do not have permission to access this area.")
+            return redirect('core:home')
+        
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+# ============================================
+# MIXINS FOR CLASS-BASED VIEWS
+# ============================================
+
 class AdminRequiredMixin(UserPassesTestMixin):
-    """Mixin to restrict access to staff users only."""
+    """Mixin to restrict access to staff/superusers only."""
     
     def test_func(self):
-        return self.request.user.is_staff or self.request.user.is_superuser
+        return self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser)
     
     def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            messages.error(self.request, 'Please log in to continue.')
+            return redirect('accounts:login')
+        
         messages.error(self.request, 'You do not have permission to access this area.')
         return redirect('core:home')
 
 
-
-# Use @admin_required for superuser-only actions
-@superuser_required
-def create_admin_user(request):
-    """Create new admin user - superuser only."""
-    # Only superusers can create other admins
-    pass
-
-@staff_member_required
-def dashboard_home(request):
-    """Main admin dashboard with statistics."""
+class SuperuserRequiredMixin(UserPassesTestMixin):
+    """Mixin to restrict access to superusers only."""
     
-    # Time periods for comparison
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+    
+    def handle_no_permission(self):
+        if not self.request.user.is_authenticated:
+            messages.error(self.request, 'Please log in to continue.')
+            return redirect('accounts:login')
+        
+        messages.error(self.request, 'Superuser access required.')
+        return redirect('dashboard:home')
+
+
+# ============================================
+# DASHBOARD VIEWS
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+def dashboard_home(request):
+    """
+    Main admin dashboard with statistics.
+    Access: Staff and Superusers
+    """
     today = timezone.now().date()
     week_ago = today - timedelta(days=7)
     month_ago = today - timedelta(days=30)
     
-    # Statistics
     context = {
         'total_users': User.objects.count(),
         'new_users_week': User.objects.filter(date_joined__date__gte=week_ago).count(),
@@ -72,39 +119,27 @@ def dashboard_home(request):
         'pending_approvals': JobVacancy.objects.filter(is_approved=False).count(),
         'expired_jobs': JobVacancy.objects.filter(expiry_date__lt=today, is_approved=True).count(),
         'total_reports': JobReport.objects.filter(reviewed=False).count(),
-        
-        # Recent activity
         'recent_jobs': JobVacancy.objects.order_by('-date_posted')[:10],
         'recent_users': User.objects.order_by('-date_joined')[:10],
         'pending_reports': JobReport.objects.filter(reviewed=False).select_related('job', 'reported_by')[:5],
-        
-        # Charts data
         'jobs_by_category': JobCategory.objects.annotate(
             job_count=Count('jobs', filter=Q(jobs__is_approved=True))
         ).values('name', 'job_count'),
-        
         'jobs_by_source': JobVacancy.objects.values('source_type').annotate(
             count=Count('id')
         ).order_by('-count'),
-        
-        'daily_jobs': JobVacancy.objects.filter(
-            date_posted__date__gte=month_ago
-        ).extra({'date': "date(date_posted)"}).values('date').annotate(
-            count=Count('id')
-        ).order_by('date'),
     }
     
     return render(request, 'dashboard/home.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 def ingestion_dashboard(request):
-    """Data ingestion management page."""
-    
-    # Get all data sources
+    """
+    Data ingestion management page.
+    Access: Staff and Superusers
+    """
     data_sources = DataSource.objects.all().order_by('-is_active', 'name')
-    
-    # Recent ingestion jobs
     recent_jobs = IngestionJob.objects.select_related('data_source', 'created_by').order_by('-created_at')[:20]
     
     context = {
@@ -117,23 +152,24 @@ def ingestion_dashboard(request):
     return render(request, 'dashboard/ingestion.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 @require_POST
 def upload_csv(request):
-    """Handle CSV file upload with column mapping."""
+    """
+    Handle CSV file upload with column mapping.
+    Access: Staff and Superusers
+    Method: POST only
+    """
     form = CSVUploadForm(request.POST, request.FILES)
     
     if form.is_valid():
-        # Create ingestion job
         ingestion_job = form.save(commit=False)
         ingestion_job.created_by = request.user
         ingestion_job.status = IngestionJob.Status.PENDING
         ingestion_job.save()
         
-        # Get column mapping
         column_mapping = json.loads(form.cleaned_data['column_mapping'])
         
-        # Start background task
         process_csv_upload(
             ingestion_job.id,
             column_mapping,
@@ -155,20 +191,20 @@ def upload_csv(request):
     })
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 def preview_csv_columns(request):
-    """Preview CSV columns for mapping."""
+    """
+    Preview CSV columns for mapping.
+    Access: Staff and Superusers
+    """
     if request.method == 'POST' and request.FILES.get('csv_file'):
         import pandas as pd
         
         csv_file = request.FILES['csv_file']
         
         try:
-            # Read first few rows to get columns
             df = pd.read_csv(csv_file, nrows=5)
             columns = df.columns.tolist()
-            
-            # Get sample data
             sample_data = df.head(3).to_dict('records')
             
             return JsonResponse({
@@ -186,35 +222,13 @@ def preview_csv_columns(request):
     return JsonResponse({'success': False, 'error': 'No file provided'})
 
 
-class DataSourceCreateView(AdminRequiredMixin, CreateView):
-    """Create new data source."""
-    model = DataSource
-    form_class = DataSourceForm
-    template_name = 'dashboard/datasource_form.html'
-    success_url = reverse_lazy('dashboard:ingestion')
-    
-    def form_valid(self, form):
-        form.instance.created_by = self.request.user
-        messages.success(self.request, 'Data source created successfully.')
-        return super().form_valid(form)
-
-
-class DataSourceUpdateView(AdminRequiredMixin, UpdateView):
-    """Update data source."""
-    model = DataSource
-    form_class = DataSourceForm
-    template_name = 'dashboard/datasource_form.html'
-    success_url = reverse_lazy('dashboard:ingestion')
-    
-    def form_valid(self, form):
-        messages.success(self.request, 'Data source updated successfully.')
-        return super().form_valid(form)
-
-
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 @require_POST
 def trigger_sync(request, pk):
-    """Manually trigger sync for a data source."""
+    """
+    Manually trigger sync for a data source.
+    Access: Staff and Superusers
+    """
     data_source = get_object_or_404(DataSource, pk=pk)
     
     if data_source.source_type in ['API_JSON', 'API_XML']:
@@ -226,15 +240,16 @@ def trigger_sync(request, pk):
     return redirect('dashboard:ingestion')
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 def job_approval_queue(request):
-    """View for approving/rejecting pending jobs."""
-    
+    """
+    View for approving/rejecting pending jobs.
+    Access: Staff and Superusers
+    """
     pending_jobs = JobVacancy.objects.filter(
         is_approved=False
     ).select_related('posted_by').order_by('-date_posted')
     
-    # Pagination
     paginator = Paginator(pending_jobs, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -247,10 +262,13 @@ def job_approval_queue(request):
     return render(request, 'dashboard/job_approval.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 @require_POST
 def approve_job(request, pk):
-    """Approve a pending job."""
+    """
+    Approve a pending job.
+    Access: Staff and Superusers
+    """
     job = get_object_or_404(JobVacancy, pk=pk, is_approved=False)
     
     job.is_approved = True
@@ -263,10 +281,13 @@ def approve_job(request, pk):
     return JsonResponse({'success': True})
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 @require_POST
 def reject_job(request, pk):
-    """Reject and delete a pending job."""
+    """
+    Reject and delete a pending job.
+    Access: Staff and Superusers
+    """
     job = get_object_or_404(JobVacancy, pk=pk, is_approved=False)
     
     title = job.title
@@ -277,22 +298,22 @@ def reject_job(request, pk):
     return JsonResponse({'success': True})
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 def reports_dashboard(request):
-    """View and manage job reports."""
-    
+    """
+    View and manage job reports.
+    Access: Staff and Superusers
+    """
     reports = JobReport.objects.select_related(
         'job', 'reported_by'
     ).order_by('-created_at')
     
-    # Filter options
     filter_status = request.GET.get('status', 'pending')
     if filter_status == 'pending':
         reports = reports.filter(reviewed=False)
     elif filter_status == 'reviewed':
         reports = reports.filter(reviewed=True)
     
-    # Pagination
     paginator = Paginator(reports, 25)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -306,12 +327,14 @@ def reports_dashboard(request):
     return render(request, 'dashboard/reports.html', context)
 
 
-@staff_member_required
+@staff_member_required(login_url='accounts:login')
 @require_POST
 def resolve_report(request, pk):
-    """Mark a report as reviewed."""
+    """
+    Mark a report as reviewed.
+    Access: Staff and Superusers
+    """
     report = get_object_or_404(JobReport, pk=pk)
-    
     action = request.POST.get('action')
     
     if action == 'remove_job':
@@ -328,3 +351,94 @@ def resolve_report(request, pk):
     report.save()
     
     return JsonResponse({'success': True})
+
+
+# ============================================
+# SUPERUSER-ONLY VIEWS (Critical Operations)
+# ============================================
+
+@superuser_required
+@require_http_methods(["GET", "POST"])
+def create_admin_user(request):
+    """
+    Create new admin user - SUPERUSER ONLY.
+    This is a critical security function.
+    """
+    # This should be implemented with a proper form
+    # For now, redirect to Django Admin
+    messages.info(request, 'Please use the Django Admin to create admin users.')
+    return redirect('admin:accounts_user_add')
+
+
+@superuser_required
+def system_settings(request):
+    """
+    System-wide settings - SUPERUSER ONLY.
+    """
+    # Placeholder for system settings view
+    messages.info(request, 'System settings coming soon.')
+    return redirect('dashboard:home')
+
+
+# ============================================
+# CLASS-BASED VIEWS
+# ============================================
+
+class DataSourceCreateView(AdminRequiredMixin, CreateView):
+    """Create new data source - Staff/Superuser only."""
+    model = DataSource
+    form_class = DataSourceForm
+    template_name = 'dashboard/datasource_form.html'
+    success_url = reverse_lazy('dashboard:ingestion')
+    
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        messages.success(self.request, 'Data source created successfully.')
+        return super().form_valid(form)
+
+
+class DataSourceUpdateView(AdminRequiredMixin, UpdateView):
+    """Update data source - Staff/Superuser only."""
+    model = DataSource
+    form_class = DataSourceForm
+    template_name = 'dashboard/datasource_form.html'
+    success_url = reverse_lazy('dashboard:ingestion')
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Data source updated successfully.')
+        return super().form_valid(form)
+
+
+# ============================================
+# ADMIN JOB POSTING (Quick Add)
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+def admin_create_job(request):
+    """
+    Admin form to quickly create a new job.
+    Access: Staff and Superusers
+    """
+    from apps.jobs.forms import JobPostForm
+    
+    if request.method == 'POST':
+        form = JobPostForm(request.POST)
+        if form.is_valid():
+            job = form.save(commit=False)
+            job.posted_by = request.user
+            job.source_type = JobVacancy.SourceType.ADMIN_CSV
+            job.trust_score = 95
+            job.is_approved = True
+            job.save()
+            
+            messages.success(request, f'Job "{job.title}" created successfully!')
+            return redirect('dashboard:home')
+    else:
+        form = JobPostForm()
+    
+    context = {
+        'form': form,
+        'title': 'Create New Job (Admin)',
+    }
+    
+    return render(request, 'dashboard/admin_create_job.html', context)
