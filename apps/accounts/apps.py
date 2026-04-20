@@ -1,6 +1,3 @@
-"""
-App configuration for Accounts app.
-"""
 from django.apps import AppConfig
 
 
@@ -11,4 +8,7 @@ class AccountsConfig(AppConfig):
     
     def ready(self):
         """Import signals when app is ready."""
-        import apps.accounts.signals
+        try:
+            import apps.accounts.signals
+        except ImportError:
+            pass

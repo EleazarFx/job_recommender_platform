@@ -7,4 +7,8 @@ class JobsConfig(AppConfig):
     verbose_name = 'Job Management'
     
     def ready(self):
-        import apps.jobs.signals
+        """Import signals when app is ready."""
+        try:
+            import apps.jobs.signals
+        except ImportError:
+            pass

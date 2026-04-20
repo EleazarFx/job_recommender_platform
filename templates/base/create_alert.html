@@ -1,0 +1,15 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Create Job Alert - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Create Job Alert</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Create Alert</button>
+        <a href="{% url 'notifications:job_alerts' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

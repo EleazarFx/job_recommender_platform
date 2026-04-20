@@ -4,7 +4,7 @@ URL patterns for AI recommendations.
 from django.urls import path
 from . import views
 
-#app_name = 'recommendations'
+app_name = 'recommendations'
 
 urlpatterns = [
     path('', views.recommended_jobs, name='recommended'),

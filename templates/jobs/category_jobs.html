@@ -1,0 +1,24 @@
+{% extends 'base/base.html' %}
+
+{% block title %}{{ category.name }} Jobs - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">{{ category.name }} Jobs</h1>
+    
+    {% if jobs %}
+        {% for job in jobs %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>
+                    <a href="{% url 'jobs:detail' job.pk %}">{{ job.title }}</a>
+                </h5>
+                <p>{{ job.company_name }} - {{ job.location_display }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">No jobs in this category yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

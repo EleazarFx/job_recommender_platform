@@ -310,3 +310,41 @@ class LoginAttempt(models.Model):
             attempt_time__gte=cutoff
         ).count()
         return attempts >= 5  # Max 5 attempts in 15 minutes
+
+
+class AdminAuditLog(models.Model):
+    """
+    Audit trail for administrative actions.
+    """
+    ACTION_TYPES = [
+        ('ADMIN_CREATED', 'Administrator Account Created'),
+        ('ADMIN_DELETED', 'Administrator Account Deleted'),
+        ('PERMISSION_CHANGED', 'Permissions Changed'),
+        ('SETTINGS_CHANGED', 'System Settings Changed'),
+        ('DATA_EXPORT', 'Data Exported'),
+    ]
+    
+    action_type = models.CharField(max_length=30, choices=ACTION_TYPES)
+    performed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='admin_actions'
+    )
+    target_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='admin_actions_received'
+    )
+    details = models.JSONField(default=dict)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'admin_audit_logs'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.action_type} by {self.performed_by} at {self.created_at}"

@@ -1,0 +1,32 @@
+{% extends 'base/base.html' %}
+
+{% block title %}My Jobs - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">My Posted Jobs</h1>
+    
+    <a href="{% url 'jobs:post' %}" class="btn btn-primary mb-3">
+        <i class="fas fa-plus"></i> Post New Job
+    </a>
+    
+    {% if jobs %}
+        {% for job in jobs %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <h5>{{ job.title }}</h5>
+                    <span class="badge {% if job.is_approved %}bg-success{% else %}bg-warning{% endif %}">
+                        {{ job.is_approved|yesno:"Approved,Pending" }}
+                    </span>
+                </div>
+                <p>{{ job.location_display }}</p>
+                <small>Posted: {{ job.date_posted|date }}</small>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">You haven't posted any jobs yet.</div>
+    {% endif %}
+</div>
+{% endblock %}

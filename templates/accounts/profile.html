@@ -1,0 +1,98 @@
+{% extends 'base/base.html' %}
+
+{% block title %}My Profile - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-circle"></i> My Profile
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3 text-center">
+                            {% if profile.avatar %}
+                            <img src="{{ profile.avatar.url }}" class="img-fluid rounded-circle mb-2" style="max-width: 120px;">
+                            {% else %}
+                            <i class="fas fa-user-circle fa-6x text-muted"></i>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h3>{{ user.get_full_name|default:user.email }}</h3>
+                            <p class="text-muted">{{ user.email }}</p>
+                            
+                            <div class="mb-2">
+                                <strong>Profile Completion:</strong>
+                                <div class="progress mt-1" style="height: 20px;">
+                                    <div class="progress-bar bg-success" style="width: {{ completion_percentage }}%">
+                                        {{ completion_percentage }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Skills</h5>
+                            <div class="mb-3">
+                                {% for skill in skills_list %}
+                                <span class="skill-tag">{{ skill }}</span>
+                                {% empty %}
+                                <p class="text-muted">No skills added yet.</p>
+                                {% endfor %}
+                            </div>
+                            
+                            <h5>Qualifications</h5>
+                            <p>{{ profile.qualifications|default:"Not specified"|linebreaksbr }}</p>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5>Experience</h5>
+                            <p>
+                                <strong>Level:</strong> {{ profile.get_experience_level_display|default:"Not specified" }}<br>
+                                <strong>Years:</strong> {{ profile.years_of_experience|default:"0" }} years
+                            </p>
+                            
+                            <h5>Preferences</h5>
+                            <p>
+                                <strong>Locations:</strong><br>
+                                {% for loc in locations_list %}
+                                <span class="badge bg-light text-dark me-1">{{ loc }}</span>
+                                {% empty %}
+                                <span class="text-muted">No preferences set</span>
+                                {% endfor %}
+                            </p>
+                            <p>
+                                <strong>Job Types:</strong><br>
+                                {% for job_type in profile.preferred_job_types %}
+                                <span class="badge bg-info me-1">{{ job_type }}</span>
+                                {% empty %}
+                                <span class="text-muted">No preferences set</span>
+                                {% endfor %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <a href="{% url 'accounts:profile_setup' %}" class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Edit Profile
+                        </a>
+                        <a href="{% url 'recommendations:recommended' %}" class="btn btn-success">
+                            <i class="fas fa-robot"></i> View Recommendations
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

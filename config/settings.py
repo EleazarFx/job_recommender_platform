@@ -41,18 +41,19 @@ THIRD_PARTY_APPS = [
     'crispy_bootstrap5',
     'corsheaders',
     'background_task',
+    'debug_toolbar', #added
 ]
 
 # Our Custom Apps (Built modularly)
 LOCAL_APPS = [
-    'apps.accounts',
-    'apps.core',
-    'apps.jobs',
-    'apps.interactions',
-    'apps.recommendations',
-    'apps.notifications',
-    'apps.dashboard',
-    'apps.ingestion',
+    'apps.accounts.apps.AccountsConfig',
+    'apps.core.apps.CoreConfig',
+    'apps.jobs.apps.JobsConfig',
+    'apps.interactions.apps.InteractionsConfig',
+    'apps.recommendations.apps.RecommendationsConfig',
+    'apps.notifications.apps.NotificationsConfig',
+    'apps.dashboard.apps.DashboardConfig',
+    'apps.ingestion.apps.IngestionConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -64,6 +65,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # For static files in production
     'corsheaders.middleware.CorsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware', #added
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -236,3 +238,33 @@ LOGGING = {
 # Create logs directory if it doesn't exist
 LOGS_DIR = BASE_DIR / 'logs'
 LOGS_DIR.mkdir(exist_ok=True)
+
+#added
+# ============================================
+# DJANGO DEBUG TOOLBAR
+# ============================================
+if DEBUG:
+    INTERNAL_IPS = [
+        '127.0.0.1',
+        'localhost',
+    ]
+    
+    # This allows the toolbar to work in Docker/VM environments
+    import socket
+    hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+    INTERNAL_IPS += [ip[: ip.rfind(".")] + ".1" for ip in ips]
+
+
+
+# ============================================
+# DJANGO ADMIN SECURITY
+# ============================================
+
+# Restrict admin access
+ADMIN_URL = 'admin/'  # Consider changing to something less predictable in production
+
+# Require staff status for admin access (already default, but explicit)
+ADMIN_REQUIRE_STAFF = True
+
+# Session security for admin
+ADMIN_SESSION_TIMEOUT = 3600  # 1 hour timeout for admin sessions

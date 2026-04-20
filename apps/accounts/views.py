@@ -24,23 +24,38 @@ from .forms import (
     ProfileUpdateForm
 )
 
-
 class RegisterView(CreateView):
-    """User registration view."""
+    """User registration view - restricted account types."""
     model = User
     form_class = CustomUserCreationForm
     template_name = 'accounts/register.html'
     success_url = reverse_lazy('accounts:profile_setup')
     
     def form_valid(self, form):
-        """Log user in after successful registration."""
+        """Log user in after successful registration with security checks."""
+        # Security: Prevent admin account creation through registration
+        if form.cleaned_data.get('user_type') == 'ADMIN':
+            messages.error(
+                self.request,
+                'Administrator accounts cannot be created through public registration.'
+            )
+            return self.form_invalid(form)
+        
+        # Ensure is_staff and is_superuser are False for all public registrations
         with transaction.atomic():
             response = super().form_valid(form)
+            
+            # Explicitly set staff/superuser status to False
+            self.object.is_staff = False
+            self.object.is_superuser = False
+            self.object.save(update_fields=['is_staff', 'is_superuser'])
+            
             login(self.request, self.object)
             messages.success(
                 self.request,
                 f'Welcome {self.object.first_name}! Please complete your profile.'
             )
+        
         return response
 
 

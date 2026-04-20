@@ -180,9 +180,22 @@ class JobSearchForm(forms.Form):
         if self.cleaned_data.get('verified_only'):
             queryset = queryset.filter(is_verified_company=True)
         
-        # Sorting
-        sort_by = self.cleaned_data.get('sort_by', '-date_posted')
-        queryset = queryset.order_by(sort_by)
+        # Sorting - FIXED SECTION
+        sort_by = self.cleaned_data.get('sort_by')
+        
+        # Validate sort_by is not empty and is a valid field
+        valid_sort_fields = [
+            '-date_posted', 'date_posted', 
+            '-trust_score', 'trust_score',
+            'company_name', '-company_name',
+            'title', '-title'
+        ]
+        
+        if sort_by and sort_by in valid_sort_fields:
+            queryset = queryset.order_by(sort_by)
+        else:
+            # Default ordering
+            queryset = queryset.order_by('-date_posted')
         
         return queryset
 

@@ -4,7 +4,7 @@ URL patterns for job listings and interactions.
 from django.urls import path
 from . import views
 
-#app_name = 'jobs'
+app_name = 'jobs'
 
 urlpatterns = [
     # Job listing and search

@@ -16,7 +16,12 @@ urlpatterns = [
     path('jobs/', include('apps.jobs.urls', namespace='jobs')),
     path('dashboard/', include('apps.dashboard.urls', namespace='dashboard')),
     path('notifications/', include('apps.notifications.urls', namespace='notifications')),
+
     path('recommendations/', include('apps.recommendations.urls', namespace='recommendations')),
+
+    #path('interactions/', include('apps.interactions.urls', namespace='interactions')),
+    #path('ingestion/', include('apps.ingestion.urls', namespace='ingestion')),
+    
 
 ]
 

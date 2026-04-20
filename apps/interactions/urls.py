@@ -1,1 +1,6 @@
-#app_name = 'interactions'
+"""
+URL patterns for user interactions.
+"""
+app_name = 'interactions'
+
+urlpatterns = []

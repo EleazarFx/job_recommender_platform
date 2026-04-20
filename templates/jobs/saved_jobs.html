@@ -1,0 +1,32 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Saved Jobs - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4"><i class="far fa-bookmark"></i> Saved Jobs</h1>
+    
+    {% if saved_jobs %}
+        <div class="row">
+            {% for saved in saved_jobs %}
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5>
+                            <a href="{% url 'jobs:detail' saved.job.pk %}">{{ saved.job.title }}</a>
+                        </h5>
+                        <p>{{ saved.job.company_name }}</p>
+                        <small class="text-muted">Saved {{ saved.saved_at|timesince }} ago</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <p>You haven't saved any jobs yet.</p>
+            <a href="{% url 'jobs:list' %}" class="btn btn-primary">Browse Jobs</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

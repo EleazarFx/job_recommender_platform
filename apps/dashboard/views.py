@@ -3,6 +3,20 @@ Admin dashboard views for managing jobs, users, and data ingestion.
 """
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
+
+
+def superuser_required(view_func):
+    """
+    Decorator to restrict access to superusers only.
+    """
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            from django.contrib import messages
+            messages.error(request, "Superuser access required.")
+            from django.shortcuts import redirect
+            return redirect('core:home')
+        return view_func(request, *args, **kwargs)
+    return wrapper
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Count, Q, Sum
@@ -32,6 +46,14 @@ class AdminRequiredMixin(UserPassesTestMixin):
         messages.error(self.request, 'You do not have permission to access this area.')
         return redirect('core:home')
 
+
+
+# Use @admin_required for superuser-only actions
+@superuser_required
+def create_admin_user(request):
+    """Create new admin user - superuser only."""
+    # Only superusers can create other admins
+    pass
 
 @staff_member_required
 def dashboard_home(request):

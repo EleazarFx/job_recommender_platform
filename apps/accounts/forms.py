@@ -37,8 +37,15 @@ class CustomUserCreationForm(UserCreationForm):
         })
     )
     
+    # FIX: Remove ADMIN from user type choices for public registration
+    USER_TYPE_CHOICES = [
+        ('JOB_SEEKER', 'Job Seeker'),
+        ('EMPLOYER', 'Employer'),
+        # ('ADMIN', 'Administrator'),  # REMOVED - Not available for public registration
+    ]
+    
     user_type = forms.ChoiceField(
-        choices=User.USER_TYPE_CHOICES,
+        choices=USER_TYPE_CHOICES,
         required=True,
         widget=forms.Select(attrs={
             'class': 'form-select'
@@ -80,6 +87,16 @@ class CustomUserCreationForm(UserCreationForm):
         if password.isdigit():
             raise forms.ValidationError('Password cannot be entirely numeric.')
         return password
+    
+    def save(self, commit=True):
+        """Override save to ensure user_type cannot be ADMIN."""
+        user = super().save(commit=False)
+        # Force user_type to JOB_SEEKER if somehow ADMIN was submitted
+        if user.user_type == 'ADMIN':
+            user.user_type = 'JOB_SEEKER'
+        if commit:
+            user.save()
+        return user
 
 
 class CustomAuthenticationForm(AuthenticationForm):

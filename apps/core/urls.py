@@ -4,7 +4,7 @@ URL patterns for core pages (homepage, about, etc.)
 from django.urls import path
 from django.views.generic import TemplateView
 
-#app_name = 'core'
+app_name = 'core'
 
 urlpatterns = [
     # Homepage (will be updated later with real view)
