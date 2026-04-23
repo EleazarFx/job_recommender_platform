@@ -1,5 +1,6 @@
 """
 Authentication views with Email OTP reset functionality.
+Simplified - No email verification on registration.
 """
 import socket
 from django.shortcuts import render, redirect
@@ -7,7 +8,7 @@ from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
-from django.views.generic import CreateView, UpdateView, TemplateView
+from django.views.generic import CreateView, UpdateView
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.core.mail import send_mail
@@ -25,203 +26,51 @@ from .forms import (
     ProfileUpdateForm
 )
 
+
+# ============================================
+# REGISTRATION
+# ============================================
+
 class RegisterView(CreateView):
-    """User registration view - restricted account types with email verification."""
+    """User registration - simple, no email verification."""
     model = User
     form_class = CustomUserCreationForm
     template_name = 'accounts/register.html'
-    success_url = reverse_lazy('accounts:login')  # Changed - require email verification first
+    success_url = reverse_lazy('accounts:profile_setup')
     
     def form_valid(self, form):
-        """Create inactive user and send verification email."""
+        """Create user, log them in, redirect to profile setup."""
         if form.cleaned_data.get('user_type') == 'ADMIN':
-            messages.error(
-                self.request,
-                'Administrator accounts cannot be created through public registration.'
-            )
+            messages.error(self.request, 'Administrator accounts cannot be created through public registration.')
             return self.form_invalid(form)
         
         with transaction.atomic():
-            response = super().form_valid(form)
+            self.object = form.save()
             
-            # Set user as inactive until email verification
-            self.object.is_active = False
+            # Set proper permissions
             self.object.is_staff = False
             self.object.is_superuser = False
-            self.object.save()
+            self.object.is_active = True
+            self.object.save(update_fields=['is_staff', 'is_superuser', 'is_active'])
             
-            # Create email verification token
-            verification_token = PasswordResetOTP.objects.create(
-                user=self.object
-            )
+            # Create profile
+            Profile.objects.get_or_create(user=self.object)
             
-            # Send verification email
-            self.send_verification_email(self.object, verification_token)
-            
-            messages.success(
-                self.request,
-                f'Welcome {self.object.first_name}! Please check your email to verify your account.'
-            )
-        
-        return redirect('accounts:login')
-    
-    def send_verification_email(self, user, token):
-        """Send email verification link."""
-        subject = f'Verify Your Email - {settings.SITE_NAME}'
-        verification_url = self.request.build_absolute_uri(
-            reverse('accounts:verify_email', kwargs={'code': token.code})
-        )
-        
-        message = f"""
-        Hello {user.get_full_name()},
-        
-        Thank you for registering with {settings.SITE_NAME}!
-        
-        Please verify your email address by entering the code below:
-        
-        {token.code}
-        
-        Or click this link:
-        {verification_url}
-        
-        This code will expire in 24 hours.
-        
-        Best regards,
-        {settings.SITE_NAME} Team
-        """
-        
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
-
-
-
-
-class EmailVerificationView(View):
-    """Verify user email with OTP."""
-    template_name = 'accounts/verify_email.html'
-    
-    def get(self, request, code=None):
-        return render(request, self.template_name, {'code': code})
-    
-    def post(self, request):
-        code = request.POST.get('code')
-        
-        if not code:
-            messages.error(request, 'Please enter the verification code.')
-            return render(request, self.template_name)
-        
-        try:
-            otp = PasswordResetOTP.objects.get(
-                code=code,
-                is_used=False,
-                created_at__gte=timezone.now() - timezone.timedelta(hours=24)
-            )
-            
-            user = otp.user
-            
-            if not user.is_active:
-                user.is_active = True
-                user.save()
-                
-                # Create profile
-                Profile.objects.get_or_create(user=user)
-                
-                otp.mark_used()
-                
-                # Log the user in
-                login(request, user)
-                
-                messages.success(
-                    request,
-                    'Email verified successfully! Please complete your profile.'
-                )
-                return redirect('accounts:profile_setup')
-            else:
-                messages.info(request, 'Email already verified. Please login.')
-                return redirect('accounts:login')
-                
-        except PasswordResetOTP.DoesNotExist:
-            messages.error(request, 'Invalid or expired verification code.')
-            return render(request, self.template_name)
-
-    
-    def form_valid(self, form):
-        """Log user in after successful registration with security checks."""
-        # Security: Prevent admin account creation through registration
-        if form.cleaned_data.get('user_type') == 'ADMIN':
-            messages.error(
-                self.request,
-                'Administrator accounts cannot be created through public registration.'
-            )
-            return self.form_invalid(form)
-        
-        # Ensure is_staff and is_superuser are False for all public registrations
-        with transaction.atomic():
-            response = super().form_valid(form)
-            
-            # Explicitly set staff/superuser status to False
-            self.object.is_staff = False
-            self.object.is_superuser = False
-            self.object.save(update_fields=['is_staff', 'is_superuser'])
-            
+            # Log user in
             login(self.request, self.object)
-            messages.success(
-                self.request,
-                f'Welcome {self.object.first_name}! Please complete your profile.'
-            )
+            
+            messages.success(self.request, f'Welcome {self.object.first_name}! Please complete your profile.')
         
-        return response
-
-
-
-@require_POST
-def resend_verification(request):
-    """Resend email verification code."""
-    email = request.POST.get('email')
+        return redirect(self.success_url)
     
-    if not email:
-        return JsonResponse({'success': False, 'message': 'Email is required.'})
-    
-    try:
-        user = User.objects.get(email=email, is_active=False)
-        
-        # Check rate limiting
-        recent_otp = PasswordResetOTP.objects.filter(
-            user=user,
-            is_used=False,
-            created_at__gte=timezone.now() - timezone.timedelta(minutes=5)
-        ).exists()
-        
-        if recent_otp:
-            return JsonResponse({
-                'success': False,
-                'message': 'Please wait 5 minutes before requesting another code.'
-            })
-        
-        # Create new verification code
-        verification_token = PasswordResetOTP.objects.create(user=user)
-        
-        # Send email
-        view = RegisterView()
-        view.request = request
-        view.send_verification_email(user, verification_token)
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Verification code sent successfully!'
-        })
-        
-    except User.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'No unverified account found with this email.'
-        })
+    def form_invalid(self, form):
+        messages.error(self.request, 'Please correct the errors below.')
+        return super().form_invalid(form)
 
+
+# ============================================
+# LOGIN
+# ============================================
 
 class CustomLoginView(LoginView):
     """Custom login view with rate limiting."""
@@ -234,23 +83,11 @@ class CustomLoginView(LoginView):
         email = form.cleaned_data.get('username')
         ip = self.get_client_ip(self.request)
         
-        # Check if email is verified
-        user = User.objects.get(email=email)
-        if not user.is_active:
-            messages.error(
-                self.request,
-                'Please verify your email address before logging in.'
-            )
-            return self.form_invalid(form)
-        
         # Log successful attempt
-        LoginAttempt.objects.create(
-            email=email,
-            ip_address=ip,
-            is_successful=True
-        )
+        LoginAttempt.objects.create(email=email, ip_address=ip, is_successful=True)
         
         # Update last activity
+        user = form.get_user()
         user.last_activity = timezone.now()
         user.save(update_fields=['last_activity'])
         
@@ -262,36 +99,17 @@ class CustomLoginView(LoginView):
         email = self.request.POST.get('username', '')
         ip = self.get_client_ip(self.request)
         
-        # Log failed attempt
-        LoginAttempt.objects.create(
-            email=email,
-            ip_address=ip,
-            is_successful=False
-        )
+        LoginAttempt.objects.create(email=email, ip_address=ip, is_successful=False)
         
-        # Check rate limiting
         recent_failures = LoginAttempt.objects.filter(
-            email=email,
-            ip_address=ip,
-            is_successful=False,
+            email=email, ip_address=ip, is_successful=False,
             attempt_time__gte=timezone.now() - timezone.timedelta(minutes=15)
         ).count()
         
         if recent_failures >= 5:
-            messages.error(
-                self.request,
-                'Too many failed attempts. Please try again in 15 minutes.'
-            )
-        elif recent_failures >= 3:
-            messages.warning(
-                self.request,
-                f'Invalid credentials. You have {5 - recent_failures} attempts remaining.'
-            )
+            messages.error(self.request, 'Too many failed attempts. Please try again in 15 minutes.')
         else:
-            messages.error(
-                self.request,
-                'Invalid email or password. Please try again.'
-            )
+            messages.error(self.request, 'Invalid email or password. Please try again.')
         
         return super().form_invalid(form)
     
@@ -300,11 +118,13 @@ class CustomLoginView(LoginView):
         """Extract client IP from request."""
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0].strip()
-        else:
-            ip = request.META.get('REMOTE_ADDR', '')
-        return ip
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', '')
 
+
+# ============================================
+# PASSWORD RESET WITH OTP
+# ============================================
 
 class PasswordResetRequestView(View):
     """Handle password reset request and send OTP."""
@@ -323,34 +143,17 @@ class PasswordResetRequestView(View):
                 with transaction.atomic():
                     user = User.objects.get(email=email)
                     
-                    # Invalidate old unused OTPs
-                    PasswordResetOTP.objects.filter(
-                        user=user,
-                        is_used=False
-                    ).update(is_used=True)
-                    
-                    # Create new OTP
+                    PasswordResetOTP.objects.filter(user=user, is_used=False).update(is_used=True)
                     otp = PasswordResetOTP.objects.create(user=user)
                     
-                    # Send email (Console for now)
                     self.send_otp_email(user, otp)
-                    
-                    # Store email in session for verification step
                     request.session['reset_email'] = email
                     
-                    messages.success(
-                        request,
-                        'A 6-digit code has been sent to your email. Valid for 10 minutes.'
-                    )
-                    
+                    messages.success(request, 'A 6-digit code has been sent to your email. Valid for 10 minutes.')
                     return redirect('accounts:password_reset_verify')
                     
             except User.DoesNotExist:
-                # Don't reveal if email exists (security)
-                messages.success(
-                    request,
-                    'If an account exists with this email, a reset code has been sent.'
-                )
+                messages.success(request, 'If an account exists with this email, a reset code has been sent.')
                 return redirect('accounts:login')
         
         return render(request, self.template_name, {'form': form})
@@ -373,13 +176,7 @@ class PasswordResetRequestView(View):
         {settings.SITE_NAME} Team
         """
         
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
 
 
 class PasswordResetVerifyView(View):
@@ -402,28 +199,50 @@ class PasswordResetVerifyView(View):
         if form.is_valid():
             with transaction.atomic():
                 user = User.objects.get(email=email)
-                
-                # Set new password
                 user.set_password(form.cleaned_data['new_password1'])
                 user.save()
                 
-                # Mark OTP as used
-                otp = form.valid_otp
-                otp.mark_used()
-                
-                # Clear session
+                form.valid_otp.mark_used()
                 del request.session['reset_email']
                 
-                messages.success(
-                    request,
-                    'Password reset successful! Please login with your new password.'
-                )
-                
+                messages.success(request, 'Password reset successful! Please login with your new password.')
                 return redirect('accounts:login')
         
         return render(request, self.template_name, {'form': form})
 
 
+@login_required
+@require_POST
+def resend_otp(request):
+    """Resend OTP for password reset."""
+    email = request.session.get('reset_email')
+    if not email:
+        return JsonResponse({'success': False, 'message': 'Session expired'})
+    
+    try:
+        user = User.objects.get(email=email)
+        
+        recent_otp = PasswordResetOTP.objects.filter(
+            user=user, is_used=False,
+            created_at__gte=timezone.now() - timezone.timedelta(minutes=2)
+        ).exists()
+        
+        if recent_otp:
+            return JsonResponse({'success': False, 'message': 'Please wait 2 minutes before requesting another code.'})
+        
+        otp = PasswordResetOTP.objects.create(user=user)
+        view = PasswordResetRequestView()
+        view.send_otp_email(user, otp)
+        
+        return JsonResponse({'success': True, 'message': 'New code sent successfully!'})
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found'})
+
+
+# ============================================
+# PASSWORD CHANGE (Logged-in Users)
+# ============================================
 
 @login_required
 def change_password(request):
@@ -445,39 +264,9 @@ def change_password(request):
     return render(request, 'accounts/change_password.html', {'form': form})
 
 
-
-@login_required
-@require_POST
-def delete_account(request):
-    """Allow users to delete their own account."""
-    user = request.user
-    
-    # Verify password before deletion
-    password = request.POST.get('password')
-    if not user.check_password(password):
-        return JsonResponse({
-            'success': False,
-            'message': 'Incorrect password. Account not deleted.'
-        })
-    
-    # Soft delete or hard delete based on preference
-    user_email = user.email
-    
-    # Option 1: Hard delete
-    user.delete()
-    
-    # Option 2: Soft delete (deactivate)
-    # user.is_active = False
-    # user.save()
-    
-    logout(request)
-    
-    return JsonResponse({
-        'success': True,
-        'message': 'Your account has been deleted successfully.'
-    })
-
-
+# ============================================
+# PROFILE MANAGEMENT
+# ============================================
 
 @method_decorator(login_required, name='dispatch')
 class ProfileSetupView(UpdateView):
@@ -492,10 +281,7 @@ class ProfileSetupView(UpdateView):
     
     def form_valid(self, form):
         response = super().form_valid(form)
-        
-        # Update profile completion percentage
         self.request.user.update_profile_completion()
-        
         messages.success(self.request, 'Profile completed successfully!')
         return response
 
@@ -515,6 +301,10 @@ def profile_view(request):
     return render(request, 'accounts/profile.html', context)
 
 
+# ============================================
+# LOGOUT
+# ============================================
+
 @login_required
 def logout_view(request):
     """Log out user."""
@@ -523,47 +313,29 @@ def logout_view(request):
     return redirect('core:home')
 
 
+# ============================================
+# ACCOUNT DELETION
+# ============================================
+
 @login_required
 @require_POST
-def resend_otp(request):
-    """Resend OTP for password reset."""
-    email = request.session.get('reset_email')
-    if not email:
-        return JsonResponse({'success': False, 'message': 'Session expired'})
+def delete_account(request):
+    """Allow users to delete their own account."""
+    user = request.user
+    password = request.POST.get('password')
     
-    try:
-        user = User.objects.get(email=email)
-        
-        # Check if we can resend (prevent spam)
-        recent_otp = PasswordResetOTP.objects.filter(
-            user=user,
-            is_used=False,
-            created_at__gte=timezone.now() - timezone.timedelta(minutes=2)
-        ).exists()
-        
-        if recent_otp:
-            return JsonResponse({
-                'success': False,
-                'message': 'Please wait 2 minutes before requesting another code.'
-            })
-        
-        # Create new OTP
-        otp = PasswordResetOTP.objects.create(user=user)
-        
-        # Send email
-        view = PasswordResetRequestView()
-        view.send_otp_email(user, otp)
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'New code sent successfully!'
-        })
-        
-    except User.DoesNotExist:
-        return JsonResponse({'success': False, 'message': 'User not found'})
+    if not user.check_password(password):
+        return JsonResponse({'success': False, 'message': 'Incorrect password. Account not deleted.'})
+    
+    user.delete()
+    logout(request)
+    
+    return JsonResponse({'success': True, 'message': 'Your account has been deleted successfully.'})
 
 
-
+# ============================================
+# PROFILE API ENDPOINTS
+# ============================================
 
 @login_required
 def profile_stats_api(request):
@@ -602,7 +374,4 @@ def update_profile_ajax(request):
     
     request.user.update_profile_completion()
     
-    return JsonResponse({
-        'success': True,
-        'completion': request.user.profile_completion_percentage
-    })
+    return JsonResponse({'success': True, 'completion': request.user.profile_completion_percentage})

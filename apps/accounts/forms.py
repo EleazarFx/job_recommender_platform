@@ -558,28 +558,6 @@ class CustomPasswordChangeForm(PasswordChangeForm):
         return password
 
 
-class EmailVerificationForm(forms.Form):
-    """Form for email verification."""
-    
-    code = forms.CharField(
-        max_length=6,
-        min_length=6,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-lg text-center',
-            'placeholder': '000000',
-            'autocomplete': 'off',
-            'inputmode': 'numeric',
-            'pattern': '[0-9]*'
-        })
-    )
-    
-    def clean_code(self):
-        """Validate code format."""
-        code = self.cleaned_data.get('code', '').strip()
-        if not code.isdigit():
-            raise forms.ValidationError('Verification code must contain only numbers.')
-        return code
-
 
 class DeleteAccountForm(forms.Form):
     """Form for account deletion confirmation."""

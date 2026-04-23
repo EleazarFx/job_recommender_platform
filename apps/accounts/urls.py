@@ -21,12 +21,6 @@ urlpatterns = [
     path('profile/setup/', views.ProfileSetupView.as_view(), name='profile_setup'),
     path('profile/', views.profile_view, name='profile'),
 
-
-    # Email Verification
-    path('verify-email/', views.EmailVerificationView.as_view(), name='verify_email'),
-    path('verify-email/<str:code>/', views.EmailVerificationView.as_view(), name='verify_email_with_code'),
-    path('resend-verification/', views.resend_verification, name='resend_verification'),
-    
     # Password Management
     path('change-password/', views.change_password, name='change_password'),
     

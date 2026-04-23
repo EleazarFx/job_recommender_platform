@@ -23,6 +23,11 @@ urlpatterns = [
     path('jobs/<int:pk>/approve/', views.approve_job, name='approve_job'),
     path('jobs/<int:pk>/reject/', views.reject_job, name='reject_job'),
     
+    # Bulk Actions
+    path('jobs/bulk-approve/', views.bulk_approve_jobs, name='bulk_approve_jobs'),
+    path('jobs/bulk-delete/', views.bulk_delete_jobs, name='bulk_delete_jobs'),
+    
+
     # Reports management
     path('reports/', views.reports_dashboard, name='reports'),
     path('reports/<int:pk>/resolve/', views.resolve_report, name='resolve_report'),
@@ -35,10 +40,16 @@ urlpatterns = [
     # Analytics
     path('analytics/', views.analytics_dashboard, name='analytics'),
     
-    # Bulk Actions
-    path('jobs/bulk-approve/', views.bulk_approve_jobs, name='bulk_approve_jobs'),
-    path('jobs/bulk-delete/', views.bulk_delete_jobs, name='bulk_delete_jobs'),
     
     # System Health
     path('system-health/', views.system_health, name='system_health'),
+
+
+    # Admin job posting (Quick Add) - THIS WAS MISSING!
+    path('jobs/create/', views.admin_create_job, name='admin_create_job'),
+    
+    # Superuser only
+    path('admin/create/', views.create_admin_user, name='create_admin_user'),
+    path('settings/', views.system_settings, name='system_settings'),
+
 ]

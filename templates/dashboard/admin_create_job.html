@@ -1,0 +1,214 @@
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Create Job - Admin - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard:home' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Create New Job (Admin)</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-plus-circle"></i> Create New Job (Admin)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Admin Quick Add:</strong> Jobs created here are automatically approved with a high trust score (95).
+                    </div>
+                    
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Job Title *</label>
+                                {{ form.title }}
+                                {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">{{ form.title.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Company Name *</label>
+                                {{ form.company_name }}
+                                {% if form.company_name.errors %}
+                                <div class="invalid-feedback d-block">{{ form.company_name.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Category</label>
+                                {{ form.category }}
+                                {% if form.category.errors %}
+                                <div class="invalid-feedback d-block">{{ form.category.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Job Type *</label>
+                                {{ form.job_type }}
+                                {% if form.job_type.errors %}
+                                <div class="invalid-feedback d-block">{{ form.job_type.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Location Display *</label>
+                                {{ form.location_display }}
+                                <small class="text-muted">e.g., "Lilongwe, Malawi" or "Remote"</small>
+                                {% if form.location_display.errors %}
+                                <div class="invalid-feedback d-block">{{ form.location_display.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">City</label>
+                                {{ form.city }}
+                                {% if form.city.errors %}
+                                <div class="invalid-feedback d-block">{{ form.city.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                {{ form.is_remote }}
+                                <label class="form-check-label">This is a remote position</label>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Experience Level *</label>
+                                {{ form.experience_level }}
+                                {% if form.experience_level.errors %}
+                                <div class="invalid-feedback d-block">{{ form.experience_level.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Expiry Date *</label>
+                                {{ form.expiry_date }}
+                                {% if form.expiry_date.errors %}
+                                <div class="invalid-feedback d-block">{{ form.expiry_date.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Required Skills *</label>
+                            {{ form.required_skills }}
+                            <small class="text-muted">Comma-separated: Python, Django, Project Management</small>
+                            {% if form.required_skills.errors %}
+                            <div class="invalid-feedback d-block">{{ form.required_skills.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Job Description *</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ form.description.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Application URL</label>
+                                {{ form.application_url }}
+                                {% if form.application_url.errors %}
+                                <div class="invalid-feedback d-block">{{ form.application_url.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Application Email</label>
+                                {{ form.application_email }}
+                                {% if form.application_email.errors %}
+                                <div class="invalid-feedback d-block">{{ form.application_email.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Note:</strong> At least one application method (URL or Email) must be provided.
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dashboard:home' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Create Job (Auto-Approved)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Help Card -->
+            <div class="card mt-4 bg-light border-0">
+                <div class="card-body">
+                    <h5><i class="fas fa-lightbulb text-warning"></i> Admin Quick Add Tips</h5>
+                    <ul class="mb-0">
+                        <li>Jobs created here are <strong>automatically approved</strong> with a trust score of 95</li>
+                        <li>The job will be immediately visible to all job seekers</li>
+                        <li>Use this for trusted employers or manually verified job postings</li>
+                        <li>For bulk imports, use the <a href="{% url 'dashboard:ingestion' %}">Data Ingestion</a> tool</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set default expiry date to 30 days from now
+document.addEventListener('DOMContentLoaded', function() {
+    const expiryInput = document.getElementById('id_expiry_date');
+    if (expiryInput && !expiryInput.value) {
+        const today = new Date();
+        today.setDate(today.getDate() + 30);
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        expiryInput.value = `${year}-${month}-${day}`;
+    }
+    
+    // Auto-fill location display when city is entered
+    const cityInput = document.getElementById('id_city');
+    const locationInput = document.getElementById('id_location_display');
+    
+    cityInput?.addEventListener('input', function() {
+        if (!locationInput.value || locationInput.value === this.value) {
+            locationInput.value = this.value + ', Malawi';
+        }
+    });
+    
+    // Remote checkbox affects location display
+    const remoteCheckbox = document.getElementById('id_is_remote');
+    remoteCheckbox?.addEventListener('change', function() {
+        if (this.checked) {
+            if (!locationInput.value || locationInput.value === cityInput.value + ', Malawi') {
+                locationInput.value = 'Remote';
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
