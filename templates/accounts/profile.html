@@ -6,32 +6,114 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
-        <div class="col-lg-8 mx-auto">
-            <div class="card shadow-sm">
+        <div class="col-lg-10 mx-auto">
+            
+            {# VERIFICATION STATUS BANNER FOR EMPLOYERS #}
+            {% if user.user_type == 'EMPLOYER' and not user.is_verified_employer %}
+            <div class="alert alert-warning border-warning mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-shield-alt fa-2x me-3"></i>
+                    <div class="flex-grow-1">
+                        <h5 class="alert-heading mb-1">Get Verified!</h5>
+                        <p class="mb-0">
+                            Verified employers get auto-approved job postings and a trust badge.
+                        </p>
+                    </div>
+                    <a href="#" class="btn btn-warning">
+                        <i class="fas fa-arrow-right"></i> Apply for Verification
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            {# PROFILE COMPLETION WARNING #}
+            {% if completion_percentage < 50 %}
+            <div class="alert alert-info border-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-user-edit fa-2x me-3"></i>
+                    <div class="flex-grow-1">
+                        <h5 class="alert-heading mb-1">Complete Your Profile</h5>
+                        <p class="mb-0">
+                            You're only {{ completion_percentage }}% done. Complete it to get better job matches!
+                        </p>
+                    </div>
+                    <a href="{% url 'accounts:profile_setup' %}" class="btn btn-info">
+                        <i class="fas fa-arrow-right"></i> Complete Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Main Profile Card -->
+            <div class="card shadow-sm mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-user-circle"></i> My Profile
-                    </h4>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-user-circle"></i> My Profile
+                        </h4>
+                        <div>
+                            {% if user.user_type == 'EMPLOYER' and user.is_verified_employer %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check-circle"></i> Verified Employer
+                            </span>
+                            {% elif user.user_type == 'ADMIN' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-crown"></i> Administrator
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
                 <div class="card-body">
+                    <!-- Profile Header -->
                     <div class="row mb-4">
                         <div class="col-md-3 text-center">
                             {% if profile.avatar %}
-                            <img src="{{ profile.avatar.url }}" class="img-fluid rounded-circle mb-2" style="max-width: 120px;">
+                            <img src="{{ profile.avatar.url }}" class="img-fluid rounded-circle mb-2" style="max-width: 120px; height: 120px; object-fit: cover;">
                             {% else %}
-                            <i class="fas fa-user-circle fa-6x text-muted"></i>
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 120px; height: 120px;">
+                                <i class="fas fa-user-circle fa-5x text-muted"></i>
+                            </div>
                             {% endif %}
+                            
+                            <div class="mt-2">
+                                <span class="badge bg-secondary">{{ user.get_user_type_display|default:user.user_type }}</span>
+                            </div>
                         </div>
                         <div class="col-md-9">
                             <h3>{{ user.get_full_name|default:user.email }}</h3>
-                            <p class="text-muted">{{ user.email }}</p>
+                            <p class="text-muted mb-2">
+                                <i class="fas fa-envelope me-2"></i>{{ user.email }}
+                            </p>
                             
                             <div class="mb-2">
                                 <strong>Profile Completion:</strong>
                                 <div class="progress mt-1" style="height: 20px;">
-                                    <div class="progress-bar bg-success" style="width: {{ completion_percentage }}%">
+                                    <div class="progress-bar {% if completion_percentage >= 80 %}bg-success{% elif completion_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                         style="width: {{ completion_percentage }}%">
                                         {{ completion_percentage }}%
                                     </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-sm-4">
+                                    <small class="text-muted">Member Since</small>
+                                    <p class="mb-0">{{ user.date_joined|date:"M d, Y" }}</p>
+                                </div>
+                                <div class="col-sm-4">
+                                    <small class="text-muted">Last Active</small>
+                                    <p class="mb-0">{{ user.last_activity|date:"M d, Y" }}</p>
+                                </div>
+                                <div class="col-sm-4">
+                                    <small class="text-muted">Email Verified</small>
+                                    <p class="mb-0">
+                                        {% if user.email_verified %}
+                                        <i class="fas fa-check-circle text-success"></i> Yes
+                                        {% else %}
+                                        <i class="fas fa-times-circle text-warning"></i> Pending
+                                        {% endif %}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -39,97 +121,228 @@
                     
                     <hr>
                     
+                    {# ============================================ #}
+                    {# JOB SEEKER PROFILE SECTION                   #}
+                    {# ============================================ #}
+                    {% if user.user_type == 'JOB_SEEKER' %}
                     <div class="row">
                         <div class="col-md-6">
-                            <h5><i class="fas fa-code"></i> Skills</h5>
-                            <div class="mb-3">
-                                {% for skill in skills_list %}
-                                <span class="badge bg-primary text-white p-2 me-1 mb-1">{{ skill }}</span>
-                                {% empty %}
-                                <p class="text-muted">No skills added yet.</p>
-                                {% endfor %}
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-code text-primary me-2"></i>Skills</h5>
+                                    <div class="mb-3">
+                                        {% for skill in skills_list %}
+                                        <span class="badge bg-primary text-white p-2 me-1 mb-1">{{ skill }}</span>
+                                        {% empty %}
+                                        <p class="text-muted">No skills added yet.</p>
+                                        {% endfor %}
+                                    </div>
+                                    
+                                    <h5 class="mt-3"><i class="fas fa-graduation-cap text-success me-2"></i>Qualifications</h5>
+                                    <p>{{ profile.qualifications|default:"Not specified"|linebreaksbr }}</p>
+                                </div>
                             </div>
-                            
-                            <h5 class="mt-3"><i class="fas fa-graduation-cap"></i> Qualifications</h5>
-                            <p>{{ profile.qualifications|default:"Not specified"|linebreaksbr }}</p>
                         </div>
                         
                         <div class="col-md-6">
-                            <h5><i class="fas fa-chart-line"></i> Experience</h5>
-                            <p>
-                                <strong>Level:</strong> {{ profile.get_experience_level_display|default:"Not specified" }}<br>
-                                <strong>Years:</strong> {{ profile.years_of_experience }} years
-                            </p>
-                            
-                            <h5 class="mt-3"><i class="fas fa-map-marker-alt"></i> Location Preferences</h5>
-                            <p>
-                                {% for loc in locations_list %}
-                                <span class="badge bg-info text-white p-2 me-1 mb-1">{{ loc }}</span>
-                                {% empty %}
-                                <span class="text-muted">No preferences set</span>
-                                {% endfor %}
-                            </p>
-                            
-                            <h5 class="mt-3"><i class="fas fa-briefcase"></i> Job Type Preferences</h5>
-                            <p>
-                                {% for job_type in profile.preferred_job_types %}
-                                    {% if job_type == 'FULL_TIME' %}
-                                    <span class="badge bg-primary text-white p-2 me-1 mb-1">Full Time</span>
-                                    {% elif job_type == 'PART_TIME' %}
-                                    <span class="badge bg-info text-white p-2 me-1 mb-1">Part Time</span>
-                                    {% elif job_type == 'CONTRACT' %}
-                                    <span class="badge bg-warning text-dark p-2 me-1 mb-1">Contract</span>
-                                    {% elif job_type == 'INTERNSHIP' %}
-                                    <span class="badge bg-success text-white p-2 me-1 mb-1">Internship</span>
-                                    {% elif job_type == 'REMOTE' %}
-                                    <span class="badge bg-secondary text-white p-2 me-1 mb-1">Remote</span>
-                                    {% elif job_type == 'HYBRID' %}
-                                    <span class="badge bg-dark text-white p-2 me-1 mb-1">Hybrid</span>
-                                    {% else %}
-                                    <span class="badge bg-light text-dark p-2 me-1 mb-1">{{ job_type }}</span>
-                                    {% endif %}
-                                {% empty %}
-                                <span class="text-muted">No preferences set</span>
-                                {% endfor %}
-                            </p>
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-chart-line text-info me-2"></i>Experience</h5>
+                                    <p>
+                                        <strong>Level:</strong> {{ profile.get_experience_level_display|default:"Not specified" }}<br>
+                                        <strong>Years:</strong> {{ profile.years_of_experience }} years
+                                    </p>
+                                    
+                                    <h5 class="mt-3"><i class="fas fa-map-marker-alt text-danger me-2"></i>Location Preferences</h5>
+                                    <p>
+                                        {% for loc in locations_list %}
+                                        <span class="badge bg-info text-white p-2 me-1 mb-1">{{ loc }}</span>
+                                        {% empty %}
+                                        <span class="text-muted">No preferences set</span>
+                                        {% endfor %}
+                                    </p>
+                                    
+                                    <h5 class="mt-3"><i class="fas fa-briefcase text-warning me-2"></i>Job Type Preferences</h5>
+                                    <p>
+                                        {% for job_type in profile.preferred_job_types %}
+                                            {% if job_type == 'FULL_TIME' %}
+                                            <span class="badge bg-primary text-white p-2 me-1 mb-1">Full Time</span>
+                                            {% elif job_type == 'PART_TIME' %}
+                                            <span class="badge bg-info text-white p-2 me-1 mb-1">Part Time</span>
+                                            {% elif job_type == 'CONTRACT' %}
+                                            <span class="badge bg-warning text-dark p-2 me-1 mb-1">Contract</span>
+                                            {% elif job_type == 'INTERNSHIP' %}
+                                            <span class="badge bg-success text-white p-2 me-1 mb-1">Internship</span>
+                                            {% elif job_type == 'REMOTE' %}
+                                            <span class="badge bg-secondary text-white p-2 me-1 mb-1">Remote</span>
+                                            {% elif job_type == 'HYBRID' %}
+                                            <span class="badge bg-dark text-white p-2 me-1 mb-1">Hybrid</span>
+                                            {% endif %}
+                                        {% empty %}
+                                        <span class="text-muted">No preferences set</span>
+                                        {% endfor %}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <hr>
+                    {# Job Seeker Stats #}
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="savedJobsCount">-</h3>
+                                <small class="text-muted">Saved Jobs</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="applicationsCount">-</h3>
+                                <small class="text-muted">Applications</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="profileViewsCount">-</h3>
+                                <small class="text-muted">Profile Views</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="matchRateCount">-</h3>
+                                <small class="text-muted">Avg Match Rate</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     
-                    <!-- Account Information -->
+                    {# ============================================ #}
+                    {# EMPLOYER PROFILE SECTION                    #}
+                    {# ============================================ #}
+                    {% if user.user_type == 'EMPLOYER' %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-building text-primary me-2"></i>Company Information</h5>
+                                    <p>
+                                        <strong>Company Name:</strong> {{ profile.company_name|default:"Not specified" }}<br>
+                                        <strong>Industry:</strong> {{ profile.industry|default:"Not specified" }}<br>
+                                        <strong>Company Size:</strong> {{ profile.company_size|default:"Not specified" }}<br>
+                                        <strong>Website:</strong> 
+                                        {% if profile.company_website %}
+                                        <a href="{{ profile.company_website }}" target="_blank">{{ profile.company_website }}</a>
+                                        {% else %}
+                                        Not specified
+                                        {% endif %}
+                                    </p>
+                                    
+                                    <h5 class="mt-3"><i class="fas fa-map-pin text-danger me-2"></i>Location</h5>
+                                    <p>
+                                        {{ profile.company_location|default:"Not specified" }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card h-100 border-0 bg-light">
+                                <div class="card-body">
+                                    <h5><i class="fas fa-file-alt text-success me-2"></i>Company Description</h5>
+                                    <p>{{ profile.company_description|default:"No description provided."|linebreaksbr }}</p>
+                                    
+                                    <h5 class="mt-3"><i class="fas fa-check-circle text-info me-2"></i>Verification Status</h5>
+                                    {% if user.is_verified_employer %}
+                                    <p class="text-success">
+                                        <i class="fas fa-check-circle"></i> 
+                                        Verified Employer - Your jobs are auto-approved and display a trust badge.
+                                    </p>
+                                    {% else %}
+                                    <p class="text-warning">
+                                        <i class="fas fa-clock"></i> 
+                                        Not verified - Your jobs require admin approval.
+                                    </p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {# Employer Stats #}
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="totalJobsCount">-</h3>
+                                <small class="text-muted">Total Jobs Posted</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="activeJobsCount">-</h3>
+                                <small class="text-muted">Active Jobs</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="totalApplicationsCount">-</h3>
+                                <small class="text-muted">Total Applications</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-0" id="averageViewsCount">-</h3>
+                                <small class="text-muted">Avg Views/Job</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {# ============================================ #}
+                    {# ADMIN PROFILE SECTION                       #}
+                    {# ============================================ #}
+                    {% if user.user_type == 'ADMIN' or user.is_staff %}
                     <div class="row">
                         <div class="col-12">
-                            <h5><i class="fas fa-user"></i> Account Information</h5>
-                            <p>
-                                <strong>Account Type:</strong> 
-                                {% if user.user_type == 'JOB_SEEKER' %}
-                                <span class="badge bg-success">Job Seeker</span>
-                                {% elif user.user_type == 'EMPLOYER' %}
-                                <span class="badge bg-primary">Employer</span>
-                                {% if user.is_verified_employer %}
-                                <span class="badge bg-success"><i class="fas fa-check-circle"></i> Verified</span>
-                                {% endif %}
-                                {% elif user.user_type == 'ADMIN' %}
-                                <span class="badge bg-danger">Administrator</span>
-                                {% endif %}
-                            </p>
-                            <p>
-                                <strong>Member Since:</strong> {{ user.date_joined|date:"F j, Y" }}<br>
-                                <strong>Last Active:</strong> {{ user.last_activity|date:"F j, Y" }}
-                            </p>
+                            <div class="alert alert-secondary">
+                                <i class="fas fa-shield-alt me-2"></i>
+                                <strong>Administrator Account</strong> - You have full access to all system features.
+                            </div>
                         </div>
                     </div>
+                    {% endif %}
                     
                     <hr>
                     
+                    <!-- Action Buttons -->
                     <div class="text-center">
                         <a href="{% url 'accounts:profile_setup' %}" class="btn btn-primary">
                             <i class="fas fa-edit"></i> Edit Profile
                         </a>
+                        
+                        {% if user.user_type == 'JOB_SEEKER' %}
                         <a href="{% url 'recommendations:recommended' %}" class="btn btn-success">
                             <i class="fas fa-robot"></i> View Recommendations
                         </a>
+                        <a href="{% url 'jobs:saved' %}" class="btn btn-outline-primary">
+                            <i class="far fa-bookmark"></i> Saved Jobs
+                        </a>
+                        {% endif %}
+                        
+                        {% if user.user_type == 'EMPLOYER' %}
+                        <a href="{% url 'jobs:post' %}" class="btn btn-success">
+                            <i class="fas fa-plus-circle"></i> Post a Job
+                        </a>
+                        <a href="{% url 'jobs:my_jobs' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-list"></i> My Jobs
+                        </a>
+                        {% endif %}
+                        
+                        {% if user.is_staff %}
+                        <a href="{% url 'dashboard:home' %}" class="btn btn-warning">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                        {% endif %}
+                        
                         <a href="{% url 'notifications:preferences' %}" class="btn btn-outline-secondary">
                             <i class="fas fa-bell"></i> Notification Settings
                         </a>
@@ -137,24 +350,188 @@
                 </div>
             </div>
             
-            <!-- Skill Gap Insights Card -->
-            <div class="card shadow-sm mt-4">
+            {# JOB SEEKER: Skill Gap Insights #}
+            {% if user.user_type == 'JOB_SEEKER' %}
+            <div class="card shadow-sm mb-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
                         <i class="fas fa-lightbulb"></i> Skill Insights
                     </h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted">
-                        As you view and save jobs, we'll analyze the skills employers are looking for 
-                        and show you insights here. No teaching—just facts about what's in demand.
-                    </p>
-                    <a href="{% url 'recommendations:skill_gaps' %}" class="btn btn-outline-info btn-sm">
-                        View Full Analysis
+                    <div id="skillInsights">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-muted" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{% url 'recommendations:skill_gaps' %}" class="btn btn-outline-info btn-sm mt-2">
+                        View Full Analysis <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
             </div>
+            {% endif %}
+            
+            {# EMPLOYER: Recent Activity #}
+            {% if user.user_type == 'EMPLOYER' %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="recentActivity">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-muted" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            {# JOB SEEKER: Recent Applications #}
+            {% if user.user_type == 'JOB_SEEKER' %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-paper-plane"></i> Recent Applications
+                        </h5>
+                        <span class="badge bg-light text-dark" id="totalApplications">0 total</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="recentApplications">
+                        <div class="text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-muted" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================
+// LOAD ROLE-SPECIFIC DATA
+// ============================================
+
+{% if user.user_type == 'JOB_SEEKER' %}
+// Load job seeker stats
+function loadJobSeekerStats() {
+    fetch('/api/profile/stats/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('savedJobsCount').textContent = data.saved_jobs || 0;
+            document.getElementById('applicationsCount').textContent = data.applications || 0;
+            document.getElementById('profileViewsCount').textContent = data.profile_views || 0;
+            document.getElementById('matchRateCount').textContent = (data.avg_match_rate || 0) + '%';
+        })
+        .catch(() => {});
+    
+    // Load skill insights
+    fetch('/api/skill-insights/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('skillInsights');
+            if (data.top_missing_skills && data.top_missing_skills.length > 0) {
+                container.innerHTML = `
+                    <p><strong>Most in-demand skills you don't have:</strong></p>
+                    <div>
+                        ${data.top_missing_skills.slice(0, 5).map(s => 
+                            `<span class="badge bg-warning text-dark p-2 me-1 mb-1">${s.skill} (${s.frequency} jobs)</span>`
+                        ).join('')}
+                    </div>
+                    <p class="text-muted mt-2 mb-0">Based on jobs you've viewed recently.</p>
+                `;
+            } else {
+                container.innerHTML = '<p class="text-muted mb-0">View jobs to see skill insights.</p>';
+            }
+        })
+        .catch(() => {});
+    
+    // Load recent applications
+    fetch('/api/applications/recent/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('recentApplications');
+            document.getElementById('totalApplications').textContent = data.total + ' total';
+            
+            if (data.applications && data.applications.length > 0) {
+                container.innerHTML = data.applications.map(app => `
+                    <div class="border-bottom p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <a href="/jobs/${app.job_id}/" class="fw-bold text-decoration-none">
+                                    ${app.job_title}
+                                </a>
+                                <div class="text-muted">${app.company_name}</div>
+                                <small>Applied ${app.applied_at}</small>
+                            </div>
+                            <span class="badge bg-${app.status_color}">${app.status}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-3">No applications yet</div>';
+            }
+        })
+        .catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', loadJobSeekerStats);
+{% endif %}
+
+{% if user.user_type == 'EMPLOYER' %}
+// Load employer stats
+function loadEmployerStats() {
+    fetch('/api/employer/stats/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalJobsCount').textContent = data.total_jobs || 0;
+            document.getElementById('activeJobsCount').textContent = data.active_jobs || 0;
+            document.getElementById('totalApplicationsCount').textContent = data.total_applications || 0;
+            document.getElementById('averageViewsCount').textContent = data.avg_views || 0;
+        })
+        .catch(() => {});
+    
+    // Load recent activity
+    fetch('/api/employer/recent-activity/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('recentActivity');
+            if (data.activities && data.activities.length > 0) {
+                container.innerHTML = data.activities.map(activity => `
+                    <div class="border-bottom p-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-${activity.icon} text-${activity.color} me-3"></i>
+                            <div>
+                                ${activity.message}
+                                <br>
+                                <small class="text-muted">${activity.time_ago}</small>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="text-center text-muted py-3">No recent activity</div>';
+            }
+        })
+        .catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', loadEmployerStats);
+{% endif %}
+</script>
 {% endblock %}

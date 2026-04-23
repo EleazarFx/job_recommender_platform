@@ -1,0 +1,108 @@
+{% extends 'base/base.html' %}
+
+{% block title %}System Health - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4"><i class="fas fa-heartbeat"></i> System Health</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card {% if db_status == 'OK' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body">
+                    <h5>Database</h5>
+                    <h2>{{ db_status }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card {% if cache_status == 'OK' %}bg-success{% else %}bg-danger{% endif %} text-white">
+                <div class="card-body">
+                    <h5>Cache</h5>
+                    <h2>{{ cache_status }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>Django Version</h5>
+                    <h2>{{ django_version }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5>Expired Jobs</h5>
+                    <h2>{{ expired_jobs }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Failed Ingestions</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Source</th>
+                                <th>Created</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in failed_ingestions %}
+                            <tr>
+                                <td>{{ job.id }}</td>
+                                <td>{{ job.data_source.name|default:"Manual" }}</td>
+                                <td>{{ job.created_at|date:"M d, H:i" }}</td>
+                                <td>{{ job.error_log|truncatechars:50 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center py-3">No failed ingestions</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Stale Ingestions (>1 hour)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for job in stale_ingestions %}
+                            <tr>
+                                <td>{{ job.id }}</td>
+                                <td>{{ job.status }}</td>
+                                <td>{{ job.created_at|date:"M d, H:i" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3" class="text-center py-3">No stale ingestions</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

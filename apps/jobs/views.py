@@ -1,5 +1,5 @@
 """
-Job listing, search, and detail views.
+Job listing, search, and detail views with role-based access control.
 """
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
@@ -11,17 +11,23 @@ from django.contrib import messages
 from django.utils import timezone
 from django.urls import reverse
 from django.views.decorators.cache import cache_page
+from django.utils.text import slugify
 import csv
 
 from .models import JobVacancy, JobCategory, JobView, SavedJob, JobReport
-from .forms import JobSearchForm, JobReportForm
+from .forms import JobSearchForm, JobReportForm, JobPostForm
 from apps.recommendations.models import JobMatchScore
+from apps.accounts.decorators import employer_required, job_seeker_required
 
+
+# ============================================
+# PUBLIC VIEWS (Accessible to all)
+# ============================================
 
 def job_list(request):
     """
     Main job listing page with search and filters.
-    Optimized for low-bandwidth with pagination.
+    Access: Everyone (Public)
     """
     # Initialize search form
     form = JobSearchForm(request.GET)
@@ -36,7 +42,10 @@ def job_list(request):
     
     # Apply filters
     if form.is_valid():
-        queryset = form.filter_queryset(queryset)
+        try:
+            queryset = form.filter_queryset(queryset)
+        except Exception:
+            queryset = queryset.order_by('-date_posted')
     else:
         queryset = queryset.order_by('-date_posted')
     
@@ -86,6 +95,13 @@ def job_list(request):
     if form.cleaned_data.get('remote_only'):
         active_filters.append("Remote only")
     
+    # Get saved job IDs for current user
+    saved_job_ids = []
+    if request.user.is_authenticated:
+        saved_job_ids = list(SavedJob.objects.filter(
+            user=request.user
+        ).values_list('job_id', flat=True))
+    
     context = {
         'jobs': jobs,
         'form': form,
@@ -94,6 +110,10 @@ def job_list(request):
         'active_filters': active_filters,
         'is_paginated': jobs.has_other_pages(),
         'page_range': jobs.paginator.page_range,
+        'saved_job_ids': saved_job_ids,
+        # Permission flags for template
+        'can_post_jobs': request.user.is_authenticated and request.user.user_type in ['EMPLOYER', 'ADMIN'],
+        'is_job_seeker': request.user.is_authenticated and request.user.user_type == 'JOB_SEEKER',
     }
     
     return render(request, 'jobs/list.html', context)
@@ -102,6 +122,7 @@ def job_list(request):
 def job_detail(request, pk, slug=None):
     """
     Job detail page with full description and application options.
+    Access: Everyone (Public) - Actions vary by role
     """
     job = get_object_or_404(
         JobVacancy.objects.select_related('category', 'posted_by'),
@@ -110,7 +131,6 @@ def job_detail(request, pk, slug=None):
     )
     
     # Redirect to canonical URL with slug
-    from django.utils.text import slugify
     canonical_slug = slugify(job.title)
     if slug != canonical_slug:
         return redirect('jobs:detail_with_slug', pk=job.pk, slug=canonical_slug)
@@ -128,30 +148,49 @@ def job_detail(request, pk, slug=None):
     
     job.increment_view_count()
     
-    # Check if user has saved this job
+    # Permission checks
     is_saved = False
     has_applied = False
     match_score = None
+    is_owner = False
+    can_edit = False
+    can_view_applicants = False
+    can_apply = False
     
     if request.user.is_authenticated:
-        is_saved = SavedJob.objects.filter(
-            user=request.user,
-            job=job
-        ).exists()
-        
-        # Get match score
-        try:
-            match_score = JobMatchScore.objects.get(
+        # Check if user saved this job (Job Seekers only)
+        if request.user.user_type == 'JOB_SEEKER':
+            is_saved = SavedJob.objects.filter(
                 user=request.user,
                 job=job
-            )
-        except JobMatchScore.DoesNotExist:
-            pass
+            ).exists()
+            can_apply = True
+            
+            # Check if already applied
+            from apps.interactions.models import JobApplication
+            has_applied = JobApplication.objects.filter(
+                job=job,
+                applicant=request.user
+            ).exists()
+        
+        # Check ownership (Employer who posted or Staff/Admin)
+        is_owner = (job.posted_by == request.user)
+        can_edit = is_owner or request.user.is_staff
+        can_view_applicants = is_owner or request.user.is_staff
+        
+        # Get match score (Job Seekers only)
+        if request.user.user_type == 'JOB_SEEKER':
+            try:
+                match_score = JobMatchScore.objects.get(
+                    user=request.user,
+                    job=job
+                )
+            except JobMatchScore.DoesNotExist:
+                pass
     
     # Get similar jobs
     similar_jobs = []
     if job.required_skills:
-        # Find jobs with similar skills
         first_skill = job.required_skills.split(',')[0].strip()
         similar_jobs = JobVacancy.objects.filter(
             is_approved=True,
@@ -178,17 +217,67 @@ def job_detail(request, pk, slug=None):
         'similar_jobs': similar_jobs,
         'company_jobs': company_jobs,
         'report_form': JobReportForm(),
+        # Permission flags
+        'is_owner': is_owner,
+        'can_edit': can_edit,
+        'can_apply': can_apply,
+        'can_view_applicants': can_view_applicants,
+        'can_report': request.user.is_authenticated and not is_owner,
+        'is_job_seeker': request.user.is_authenticated and request.user.user_type == 'JOB_SEEKER',
+        'is_employer': request.user.is_authenticated and request.user.user_type == 'EMPLOYER',
+        'is_verified_employer': request.user.is_authenticated and request.user.is_verified_employer,
     }
     
     return render(request, 'jobs/detail.html', context)
 
 
+def category_jobs(request, slug):
+    """
+    View jobs in a specific category.
+    Access: Everyone (Public)
+    """
+    category = get_object_or_404(JobCategory, slug=slug, is_active=True)
+    
+    jobs = JobVacancy.objects.filter(
+        category=category,
+        is_approved=True,
+        expiry_date__gte=timezone.now().date()
+    ).select_related('posted_by').order_by('-date_posted')
+    
+    # Pagination
+    paginator = Paginator(jobs, 20)
+    page = request.GET.get('page', 1)
+    
+    try:
+        jobs_page = paginator.page(page)
+    except PageNotAnInteger:
+        jobs_page = paginator.page(1)
+    except EmptyPage:
+        jobs_page = paginator.page(paginator.num_pages)
+    
+    context = {
+        'category': category,
+        'jobs': jobs_page,
+        'total_jobs': jobs.count(),
+    }
+    
+    return render(request, 'jobs/category_jobs.html', context)
+
+
+# ============================================
+# JOB SEEKER ONLY VIEWS
+# ============================================
+
 @login_required
-@require_POST
+@job_seeker_required
 def save_job(request, pk):
     """
     Save/bookmark a job for later.
+    Access: Job Seekers ONLY
     """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+    
     job = get_object_or_404(JobVacancy, pk=pk, is_approved=True)
     
     saved, created = SavedJob.objects.get_or_create(
@@ -197,26 +286,29 @@ def save_job(request, pk):
     )
     
     if created:
-        messages.success(request, f'"{job.title}" has been saved to your bookmarks.')
+        message = f'"{job.title}" has been saved to your bookmarks.'
     else:
         saved.delete()
-        messages.info(request, f'"{job.title}" has been removed from your bookmarks.')
+        message = f'"{job.title}" has been removed from your bookmarks.'
     
     # Return JSON for AJAX requests
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({
             'success': True,
             'is_saved': created,
-            'message': 'Job saved' if created else 'Job unsaved'
+            'message': message
         })
     
+    messages.success(request, message)
     return redirect('jobs:detail', pk=pk)
 
 
 @login_required
+@job_seeker_required
 def saved_jobs(request):
     """
     View user's saved/bookmarked jobs.
+    Access: Job Seekers ONLY
     """
     saved = SavedJob.objects.filter(
         user=request.user
@@ -242,12 +334,217 @@ def saved_jobs(request):
 
 
 @login_required
+@job_seeker_required
+def apply_job(request, pk):
+    """
+    Track job application and redirect to external URL or show email.
+    Access: Job Seekers ONLY
+    """
+    job = get_object_or_404(JobVacancy, pk=pk, is_approved=True)
+    
+    if job.is_expired():
+        messages.error(request, 'This job has expired and is no longer accepting applications.')
+        return redirect('jobs:detail', pk=pk)
+    
+    # Record application
+    from apps.interactions.models import JobApplication
+    application, created = JobApplication.objects.get_or_create(
+        job=job,
+        applicant=request.user,
+        defaults={
+            'status': 'APPLIED',
+            'applied_at': timezone.now()
+        }
+    )
+    
+    if created:
+        job.application_count = F('application_count') + 1
+        job.save(update_fields=['application_count'])
+        messages.success(request, f'You have successfully applied to "{job.title}"!')
+    else:
+        messages.info(request, f'You have already applied to this job on {application.applied_at.date()}.')
+    
+    # Redirect to external URL or show application details
+    if job.application_url:
+        return redirect(job.application_url)
+    else:
+        messages.info(
+            request,
+            f'Please send your application to: {job.application_email}'
+        )
+        return redirect('jobs:detail', pk=pk)
+
+
+# ============================================
+# EMPLOYER ONLY VIEWS
+# ============================================
+
+@login_required
+@employer_required
+def post_job(request):
+    """
+    Allow employers to post jobs.
+    Verified employers get auto-approval.
+    Access: Employers ONLY
+    """
+    if request.method == 'POST':
+        form = JobPostForm(request.POST)
+        if form.is_valid():
+            job = form.save(commit=False)
+            job.posted_by = request.user
+            
+            # Set trust score and approval based on verification status
+            if request.user.is_verified_employer:
+                job.source_type = JobVacancy.SourceType.VERIFIED_EMPLOYER
+                job.trust_score = 85
+                job.is_approved = True
+                job.is_verified_company = True
+                success_message = 'Your job has been posted successfully!'
+            else:
+                job.source_type = JobVacancy.SourceType.GENERAL_USER
+                job.trust_score = 50
+                job.is_approved = False
+                success_message = 'Your job has been submitted for review. It will appear once approved.'
+            
+            job.save()
+            messages.success(request, success_message)
+            
+            return redirect('jobs:my_jobs')
+    else:
+        form = JobPostForm()
+    
+    context = {
+        'form': form,
+        'is_verified': request.user.is_verified_employer,
+    }
+    
+    return render(request, 'jobs/post_job.html', context)
+
+
+@login_required
+@employer_required
+def my_jobs(request):
+    """
+    View jobs posted by the current employer.
+    Access: Employers ONLY
+    """
+    jobs = JobVacancy.objects.filter(
+        posted_by=request.user
+    ).order_by('-date_posted')
+    
+    # Statistics
+    today = timezone.now().date()
+    
+    context = {
+        'jobs': jobs,
+        'active_jobs': jobs.filter(is_approved=True, expiry_date__gte=today).count(),
+        'pending_jobs': jobs.filter(is_approved=False).count(),
+        'expired_jobs': jobs.filter(expiry_date__lt=today).count(),
+        'total_applications': sum(job.application_count for job in jobs),
+        'is_verified': request.user.is_verified_employer,
+    }
+    
+    return render(request, 'jobs/my_jobs.html', context)
+
+
+@login_required
+def view_applicants(request, pk):
+    """
+    View applicants for a specific job.
+    Access: Job Owner OR Staff/Admin
+    """
+    job = get_object_or_404(JobVacancy, pk=pk)
+    
+    # Permission check: Must be job owner OR staff/admin
+    if job.posted_by != request.user and not request.user.is_staff:
+        messages.error(request, 'You do not have permission to view applicants for this job.')
+        return redirect('jobs:detail', pk=pk)
+    
+    from apps.interactions.models import JobApplication
+    applications = JobApplication.objects.filter(
+        job=job
+    ).select_related('applicant', 'applicant__profile').order_by('-applied_at')
+    
+    context = {
+        'job': job,
+        'applications': applications,
+        'total_applications': applications.count(),
+    }
+    
+    return render(request, 'jobs/applicants.html', context)
+
+
+# ============================================
+# JOB MANAGEMENT (Owner or Staff only)
+# ============================================
+
+@login_required
+@require_POST
+def delete_job(request, pk):
+    """
+    Delete a job.
+    Access: Job Owner OR Staff/Admin
+    """
+    job = get_object_or_404(JobVacancy, pk=pk)
+    
+    # Permission check
+    if job.posted_by != request.user and not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'You do not have permission to delete this job.'
+        })
+    
+    title = job.title
+    job.delete()
+    
+    messages.success(request, f'Job "{title}" has been deleted.')
+    
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def extend_job(request, pk):
+    """
+    Extend job expiry date by 30 days.
+    Access: Job Owner OR Staff/Admin
+    """
+    job = get_object_or_404(JobVacancy, pk=pk)
+    
+    # Permission check
+    if job.posted_by != request.user and not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'You do not have permission to extend this job.'
+        })
+    
+    job.expiry_date = timezone.now().date() + timezone.timedelta(days=30)
+    job.save(update_fields=['expiry_date'])
+    
+    messages.success(request, f'Job expiry date extended to {job.expiry_date}')
+    
+    return JsonResponse({'success': True, 'new_expiry': job.expiry_date.isoformat()})
+
+
+# ============================================
+# REPORTING (All authenticated users)
+# ============================================
+
+@login_required
 @require_POST
 def report_job(request, pk):
     """
     Report a suspicious job posting.
+    Access: All authenticated users (except job owner)
     """
     job = get_object_or_404(JobVacancy, pk=pk)
+    
+    # Don't allow reporting own jobs
+    if job.posted_by == request.user:
+        return JsonResponse({
+            'success': False,
+            'message': 'You cannot report your own job posting.'
+        })
     
     form = JobReportForm(request.POST)
     if form.is_valid():
@@ -286,161 +583,14 @@ def report_job(request, pk):
     })
 
 
-def category_jobs(request, slug):
-    """
-    View jobs in a specific category.
-    """
-    category = get_object_or_404(JobCategory, slug=slug, is_active=True)
-    
-    jobs = JobVacancy.objects.filter(
-        category=category,
-        is_approved=True,
-        expiry_date__gte=timezone.now().date()
-    ).select_related('posted_by').order_by('-date_posted')
-    
-    # Pagination
-    paginator = Paginator(jobs, 20)
-    page = request.GET.get('page', 1)
-    
-    try:
-        jobs_page = paginator.page(page)
-    except PageNotAnInteger:
-        jobs_page = paginator.page(1)
-    except EmptyPage:
-        jobs_page = paginator.page(paginator.num_pages)
-    
-    context = {
-        'category': category,
-        'jobs': jobs_page,
-        'total_jobs': jobs.count(),
-    }
-    
-    return render(request, 'jobs/category_jobs.html', context)
-
-
-@login_required
-def post_job(request):
-    """
-    Allow users and employers to post jobs.
-    """
-    from .forms import JobPostForm
-    
-    if request.method == 'POST':
-        form = JobPostForm(request.POST)
-        if form.is_valid():
-            job = form.save(commit=False)
-            job.posted_by = request.user
-            
-            # Set trust score based on user type
-            if request.user.user_type == 'EMPLOYER' and request.user.is_verified_employer:
-                job.source_type = JobVacancy.SourceType.VERIFIED_EMPLOYER
-                job.trust_score = 85
-                job.is_approved = True  # Auto-approve verified employers
-            else:
-                job.source_type = JobVacancy.SourceType.GENERAL_USER
-                job.trust_score = 50
-                job.is_approved = False  # Requires admin approval
-            
-            job.save()
-            
-            if job.is_approved:
-                messages.success(request, 'Your job has been posted successfully!')
-            else:
-                messages.info(request, 'Your job has been submitted for review. It will appear once approved.')
-            
-            return redirect('jobs:detail', pk=job.pk)
-    else:
-        form = JobPostForm()
-    
-    return render(request, 'jobs/post_job.html', {'form': form})
-
-
-@login_required
-def my_jobs(request):
-    """
-    View jobs posted by the current user.
-    """
-    jobs = JobVacancy.objects.filter(
-        posted_by=request.user
-    ).order_by('-date_posted')
-    
-    context = {
-        'jobs': jobs,
-        'active_jobs': jobs.filter(is_approved=True, expiry_date__gte=timezone.now().date()).count(),
-        'pending_jobs': jobs.filter(is_approved=False).count(),
-        'expired_jobs': jobs.filter(expiry_date__lt=timezone.now().date()).count(),
-    }
-    
-    return render(request, 'jobs/my_jobs.html', context)
-
-
-@login_required
-@require_POST
-def delete_job(request, pk):
-    """
-    Delete a job posted by the user.
-    """
-    job = get_object_or_404(JobVacancy, pk=pk, posted_by=request.user)
-    
-    title = job.title
-    job.delete()
-    
-    messages.success(request, f'Job "{title}" has been deleted.')
-    
-    return JsonResponse({'success': True})
-
-
-@login_required
-@require_POST
-def extend_job(request, pk):
-    """
-    Extend job expiry date by 30 days.
-    """
-    job = get_object_or_404(JobVacancy, pk=pk, posted_by=request.user)
-    
-    job.expiry_date = timezone.now().date() + timezone.timedelta(days=30)
-    job.save(update_fields=['expiry_date'])
-    
-    messages.success(request, f'Job expiry date extended to {job.expiry_date}')
-    
-    return JsonResponse({'success': True, 'new_expiry': job.expiry_date.isoformat()})
-
-
-@login_required
-def apply_job(request, pk):
-    """
-    Track job application and redirect to external URL or show email.
-    """
-    job = get_object_or_404(JobVacancy, pk=pk, is_approved=True)
-    
-    # Record application
-    from apps.interactions.models import JobApplication
-    JobApplication.objects.get_or_create(
-        job=job,
-        applicant=request.user,
-        defaults={
-            'status': 'APPLIED',
-            'applied_at': timezone.now()
-        }
-    )
-    
-    job.application_count = F('application_count') + 1
-    job.save(update_fields=['application_count'])
-    
-    # Redirect to external URL or show application details
-    if job.application_url:
-        return redirect(job.application_url)
-    else:
-        messages.info(
-            request,
-            f'Please send your application to: {job.application_email}'
-        )
-        return redirect('jobs:detail', pk=pk)
-
+# ============================================
+# EXPORT (Staff only)
+# ============================================
 
 def export_jobs_csv(request):
     """
-    Export filtered jobs as CSV (for verified users/analytics).
+    Export filtered jobs as CSV.
+    Access: Staff/Admin ONLY
     """
     if not request.user.is_authenticated or not request.user.is_staff:
         return HttpResponse('Unauthorized', status=401)
@@ -462,7 +612,8 @@ def export_jobs_csv(request):
     writer = csv.writer(response)
     writer.writerow([
         'Title', 'Company', 'Location', 'Job Type', 
-        'Experience Level', 'Skills Required', 'Date Posted', 'Expiry Date'
+        'Experience Level', 'Skills Required', 'Date Posted', 'Expiry Date',
+        'Applications', 'Views', 'Trust Score'
     ])
     
     for job in queryset:
@@ -474,7 +625,10 @@ def export_jobs_csv(request):
             job.get_experience_level_display(),
             job.required_skills,
             job.date_posted.date(),
-            job.expiry_date
+            job.expiry_date,
+            job.application_count,
+            job.view_count,
+            job.trust_score
         ])
     
     return response

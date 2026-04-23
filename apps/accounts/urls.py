@@ -20,4 +20,20 @@ urlpatterns = [
     # Profile Management
     path('profile/setup/', views.ProfileSetupView.as_view(), name='profile_setup'),
     path('profile/', views.profile_view, name='profile'),
+
+
+    # Email Verification
+    path('verify-email/', views.EmailVerificationView.as_view(), name='verify_email'),
+    path('verify-email/<str:code>/', views.EmailVerificationView.as_view(), name='verify_email_with_code'),
+    path('resend-verification/', views.resend_verification, name='resend_verification'),
+    
+    # Password Management
+    path('change-password/', views.change_password, name='change_password'),
+    
+    # Account Management
+    path('delete-account/', views.delete_account, name='delete_account'),
+    
+    # API Endpoints
+    path('api/profile/stats/', views.profile_stats_api, name='profile_stats_api'),
+    path('api/profile/update/', views.update_profile_ajax, name='update_profile_ajax'),
 ]

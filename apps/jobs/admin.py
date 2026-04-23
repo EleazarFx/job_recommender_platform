@@ -5,8 +5,39 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils import timezone
+from datetime import timedelta  # ADD THIS IMPORT
 from .models import JobCategory, JobVacancy, JobReport, JobView, SavedJob
 
+
+# ============================================
+# INLINE CLASSES (Define BEFORE they're used)
+# ============================================
+
+class JobReportInline(admin.TabularInline):
+    """
+    Inline reports for job vacancies.
+    Displays reports directly in the JobVacancy admin page.
+    """
+    model = JobReport
+    extra = 0  # Don't show empty forms
+    readonly_fields = ['reported_by', 'reason', 'details', 'created_at']
+    can_delete = False
+    show_change_link = True
+    
+    fields = ['reported_by', 'reason', 'details', 'created_at', 'reviewed']
+    
+    def has_add_permission(self, request, obj=None):
+        """Prevent adding reports manually through inline."""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Allow viewing but not editing."""
+        return False
+
+
+# ============================================
+# JOB CATEGORY ADMIN
+# ============================================
 
 @admin.register(JobCategory)
 class JobCategoryAdmin(admin.ModelAdmin):
@@ -44,22 +75,15 @@ class JobCategoryAdmin(admin.ModelAdmin):
     active_jobs_count.short_description = 'Active Jobs'
 
 
-class JobReportInline(admin.TabularInline):
-    """Inline reports for job vacancies."""
-    model = JobReport
-    extra = 0
-    readonly_fields = ['reported_by', 'reason', 'details', 'created_at']
-    can_delete = False
-    
-    def has_add_permission(self, request, obj):
-        return False
-
+# ============================================
+# JOB VACANCY ADMIN (Uses JobReportInline)
+# ============================================
 
 @admin.register(JobVacancy)
 class JobVacancyAdmin(admin.ModelAdmin):
     """Job Vacancy admin configuration."""
     
-    inlines = [JobReportInline]
+    inlines = [JobReportInline]  # Now this is properly defined above
     
     list_display = [
         'title', 'company_name', 'location_display', 'job_type', 
@@ -129,30 +153,40 @@ class JobVacancyAdmin(admin.ModelAdmin):
         score = obj.trust_score
         
         if score >= 80:
-            color = 'green'
-            icon = '✅'
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{} {}%</span>',
+                'green', '✅', score
+            )
         elif score >= 50:
-            color = 'orange'
-            icon = '⚠️'
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{} {}%</span>',
+                'orange', '⚠️', score
+            )
         else:
-            color = 'red'
-            icon = '❌'
-        
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}%</span>',
-            color, icon, score
-        )
+            return format_html(
+                '<span style="color: {}; font-weight: bold;">{} {}%</span>',
+                'red', '❌', score
+            )
     trust_score_badge.short_description = 'Trust'
     trust_score_badge.admin_order_field = 'trust_score'
     
     def expiry_status(self, obj):
         """Display expiry status with visual indicator."""
         if obj.is_expired():
-            return format_html('<span style="color: red;">❌ Expired</span>')
-        elif obj.expiry_date <= timezone.now().date() + timezone.timedelta(days=7):
-            return format_html('<span style="color: orange;">⚠️ Expires soon</span>')
+            return format_html(
+                '<span style="color: {};">{} {}</span>',
+                'red', '❌', 'Expired'
+            )
+        elif obj.expiry_date <= timezone.now().date() + timedelta(days=7):
+            return format_html(
+                '<span style="color: {};">{} {}</span>',
+                'orange', '⚠️', 'Expires soon'
+            )
         else:
-            return format_html('<span style="color: green;">✅ Active</span>')
+            return format_html(
+                '<span style="color: {};">{} {}</span>',
+                'green', '✅', 'Active'
+            )
     expiry_status.short_description = 'Status'
     expiry_status.admin_order_field = 'expiry_date'
     
@@ -168,9 +202,6 @@ class JobVacancyAdmin(admin.ModelAdmin):
     
     @admin.action(description="Extend expiry by 30 days")
     def extend_expiry_30_days(self, request, queryset):
-        from django.db.models import F
-        from datetime import timedelta
-        
         updated = 0
         for job in queryset:
             job.expiry_date = timezone.now().date() + timedelta(days=30)
@@ -184,6 +215,10 @@ class JobVacancyAdmin(admin.ModelAdmin):
         updated = queryset.update(is_verified_company=True, trust_score=85)
         self.message_user(request, f'{updated} job(s) marked as verified companies.')
 
+
+# ============================================
+# JOB REPORT ADMIN
+# ============================================
 
 @admin.register(JobReport)
 class JobReportAdmin(admin.ModelAdmin):
@@ -216,7 +251,6 @@ class JobReportAdmin(admin.ModelAdmin):
         """Track who reviewed the report."""
         if obj.reviewed and not obj.reviewed_by:
             obj.reviewed_by = request.user
-            from django.utils import timezone
             obj.reviewed_at = timezone.now()
         super().save_model(request, obj, form, change)
     
@@ -232,6 +266,10 @@ class JobReportAdmin(admin.ModelAdmin):
         self.message_user(request, f'{updated} report(s) marked as reviewed.')
 
 
+# ============================================
+# JOB VIEW ADMIN
+# ============================================
+
 @admin.register(JobView)
 class JobViewAdmin(admin.ModelAdmin):
     """Job View analytics."""
@@ -244,6 +282,10 @@ class JobViewAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
+
+# ============================================
+# SAVED JOB ADMIN
+# ============================================
 
 @admin.register(SavedJob)
 class SavedJobAdmin(admin.ModelAdmin):

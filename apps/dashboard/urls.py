@@ -26,4 +26,19 @@ urlpatterns = [
     # Reports management
     path('reports/', views.reports_dashboard, name='reports'),
     path('reports/<int:pk>/resolve/', views.resolve_report, name='resolve_report'),
+
+    # Employer Verification
+    path('employers/verify/', views.employer_verification_queue, name='employer_verification'),
+    path('employers/<int:pk>/verify/', views.verify_employer, name='verify_employer'),
+    path('employers/<int:pk>/unverify/', views.unverify_employer, name='unverify_employer'),
+    
+    # Analytics
+    path('analytics/', views.analytics_dashboard, name='analytics'),
+    
+    # Bulk Actions
+    path('jobs/bulk-approve/', views.bulk_approve_jobs, name='bulk_approve_jobs'),
+    path('jobs/bulk-delete/', views.bulk_delete_jobs, name='bulk_delete_jobs'),
+    
+    # System Health
+    path('system-health/', views.system_health, name='system_health'),
 ]

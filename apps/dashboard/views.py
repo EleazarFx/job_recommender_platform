@@ -17,6 +17,8 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 from datetime import timedelta
 import json
 
+from apps.jobs.forms import JobPostForm
+
 from apps.jobs.models import JobVacancy, JobCategory, JobReport
 from apps.accounts.models import User
 from apps.ingestion.models import DataSource, IngestionJob
@@ -112,13 +114,49 @@ def dashboard_home(request):
     week_ago = today - timedelta(days=7)
     month_ago = today - timedelta(days=30)
     
+    # Additional statistics
+    active_jobs = JobVacancy.objects.filter(
+        is_approved=True, 
+        expiry_date__gte=today
+    ).count()
+    
+    verified_employers = User.objects.filter(
+        user_type='EMPLOYER', 
+        is_verified_employer=True
+    ).count()
+    
+    pending_verifications = User.objects.filter(
+        user_type='EMPLOYER', 
+        is_verified_employer=False
+    ).count()
+    
+    # Jobs expiring soon (next 7 days)
+    expiring_soon = JobVacancy.objects.filter(
+        is_approved=True,
+        expiry_date__gte=today,
+        expiry_date__lte=today + timedelta(days=7)
+    ).count()
+    
+    # Application statistics
+    from apps.interactions.models import JobApplication
+    total_applications = JobApplication.objects.count()
+    applications_this_week = JobApplication.objects.filter(
+        applied_at__date__gte=week_ago
+    ).count()
+    
     context = {
         'total_users': User.objects.count(),
         'new_users_week': User.objects.filter(date_joined__date__gte=week_ago).count(),
         'total_jobs': JobVacancy.objects.filter(is_approved=True).count(),
+        'active_jobs': active_jobs,
         'pending_approvals': JobVacancy.objects.filter(is_approved=False).count(),
         'expired_jobs': JobVacancy.objects.filter(expiry_date__lt=today, is_approved=True).count(),
+        'expiring_soon': expiring_soon,
         'total_reports': JobReport.objects.filter(reviewed=False).count(),
+        'verified_employers': verified_employers,
+        'pending_verifications': pending_verifications,
+        'total_applications': total_applications,
+        'applications_this_week': applications_this_week,
         'recent_jobs': JobVacancy.objects.order_by('-date_posted')[:10],
         'recent_users': User.objects.order_by('-date_joined')[:10],
         'pending_reports': JobReport.objects.filter(reviewed=False).select_related('job', 'reported_by')[:5],
@@ -128,9 +166,15 @@ def dashboard_home(request):
         'jobs_by_source': JobVacancy.objects.values('source_type').annotate(
             count=Count('id')
         ).order_by('-count'),
+        'daily_jobs': JobVacancy.objects.filter(
+            date_posted__date__gte=month_ago
+        ).extra({'date': "date(date_posted)"}).values('date').annotate(
+            count=Count('id')
+        ).order_by('date'),
     }
     
     return render(request, 'dashboard/home.html', context)
+
 
 
 @staff_member_required(login_url='accounts:login')
@@ -442,3 +486,239 @@ def admin_create_job(request):
     }
     
     return render(request, 'dashboard/admin_create_job.html', context)
+
+
+
+
+# Add these imports at the top
+from apps.interactions.models import JobApplication
+
+
+
+# ============================================
+# EMPLOYER VERIFICATION VIEWS
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+def employer_verification_queue(request):
+    """
+    View for verifying employer accounts.
+    Access: Staff and Superusers
+    """
+    pending_employers = User.objects.filter(
+        user_type='EMPLOYER',
+        is_verified_employer=False
+    ).select_related('profile').order_by('-date_joined')
+    
+    verified_employers = User.objects.filter(
+        user_type='EMPLOYER',
+        is_verified_employer=True
+    ).select_related('profile').order_by('-date_joined')
+    
+    context = {
+        'pending_employers': pending_employers,
+        'verified_employers': verified_employers,
+        'total_pending': pending_employers.count(),
+        'total_verified': verified_employers.count(),
+    }
+    
+    return render(request, 'dashboard/employer_verification.html', context)
+
+
+@staff_member_required(login_url='accounts:login')
+@require_POST
+def verify_employer(request, pk):
+    """
+    Verify an employer account.
+    Access: Staff and Superusers
+    """
+    employer = get_object_or_404(User, pk=pk, user_type='EMPLOYER')
+    
+    employer.is_verified_employer = True
+    employer.save(update_fields=['is_verified_employer'])
+    
+    messages.success(request, f'Employer "{employer.email}" has been verified.')
+    
+    return JsonResponse({'success': True})
+
+
+@staff_member_required(login_url='accounts:login')
+@require_POST
+def unverify_employer(request, pk):
+    """
+    Remove verification from an employer account.
+    Access: Staff and Superusers
+    """
+    employer = get_object_or_404(User, pk=pk, user_type='EMPLOYER')
+    
+    employer.is_verified_employer = False
+    employer.save(update_fields=['is_verified_employer'])
+    
+    messages.warning(request, f'Verification removed from "{employer.email}".')
+    
+    return JsonResponse({'success': True})
+
+
+
+
+
+
+# ============================================
+# ANALYTICS DASHBOARD
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+def analytics_dashboard(request):
+    """
+    Advanced analytics dashboard.
+    Access: Staff and Superusers
+    """
+    today = timezone.now().date()
+    thirty_days_ago = today - timedelta(days=30)
+    
+    # User growth over time
+    user_growth = User.objects.filter(
+        date_joined__date__gte=thirty_days_ago
+    ).extra({'date': "date(date_joined)"}).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+    
+    # Job postings over time
+    job_postings = JobVacancy.objects.filter(
+        date_posted__date__gte=thirty_days_ago
+    ).extra({'date': "date(date_posted)"}).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+    
+    # Top categories
+    top_categories = JobCategory.objects.annotate(
+        job_count=Count('jobs', filter=Q(jobs__is_approved=True))
+    ).filter(job_count__gt=0).order_by('-job_count')[:10]
+    
+    # Top locations
+    from django.db.models import Count
+    top_locations = JobVacancy.objects.filter(
+        is_approved=True
+    ).values('city').annotate(
+        count=Count('id')
+    ).exclude(city='').order_by('-count')[:10]
+    
+    # User type distribution
+    user_distribution = User.objects.values('user_type').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    context = {
+        'user_growth': list(user_growth),
+        'job_postings': list(job_postings),
+        'top_categories': top_categories,
+        'top_locations': top_locations,
+        'user_distribution': user_distribution,
+        'date_range': f"{thirty_days_ago} to {today}",
+    }
+    
+    return render(request, 'dashboard/analytics.html', context)
+
+# ============================================
+# BULK ACTIONS
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+@require_POST
+def bulk_approve_jobs(request):
+    """
+    Bulk approve multiple pending jobs.
+    Access: Staff and Superusers
+    """
+    job_ids = request.POST.getlist('job_ids')
+    
+    if not job_ids:
+        return JsonResponse({'success': False, 'message': 'No jobs selected.'})
+    
+    updated = JobVacancy.objects.filter(
+        id__in=job_ids,
+        is_approved=False
+    ).update(
+        is_approved=True,
+        approved_by=request.user,
+        approved_at=timezone.now()
+    )
+    
+    messages.success(request, f'{updated} job(s) approved successfully.')
+    
+    return JsonResponse({'success': True, 'count': updated})
+
+
+@staff_member_required(login_url='accounts:login')
+@require_POST
+def bulk_delete_jobs(request):
+    """
+    Bulk delete multiple jobs.
+    Access: Staff and Superusers
+    """
+    job_ids = request.POST.getlist('job_ids')
+    
+    if not job_ids:
+        return JsonResponse({'success': False, 'message': 'No jobs selected.'})
+    
+    deleted, _ = JobVacancy.objects.filter(id__in=job_ids).delete()
+    
+    messages.success(request, f'{deleted} job(s) deleted successfully.')
+    
+    return JsonResponse({'success': True, 'count': deleted})
+
+
+
+# ============================================
+# SYSTEM HEALTH
+# ============================================
+
+@staff_member_required(login_url='accounts:login')
+def system_health(request):
+    """
+    System health check and monitoring.
+    Access: Staff and Superusers
+    """
+    from django.db import connection
+    from django.core.cache import cache
+    from apps.ingestion.models import IngestionJob
+    
+    # Database status
+    db_status = 'OK' if connection.connection else 'ERROR'
+    
+    # Cache status
+    try:
+        cache.set('health_check', 'ok', 10)
+        cache_status = 'OK' if cache.get('health_check') == 'ok' else 'ERROR'
+    except:
+        cache_status = 'ERROR'
+    
+    # Recent failed ingestion jobs
+    failed_ingestions = IngestionJob.objects.filter(
+        status='FAILED'
+    ).order_by('-created_at')[:10]
+    
+    # Stale pending jobs (older than 1 hour)
+    stale_threshold = timezone.now() - timedelta(hours=1)
+    stale_ingestions = IngestionJob.objects.filter(
+        status__in=['PENDING', 'PROCESSING'],
+        created_at__lt=stale_threshold
+    )
+    
+    # Expired jobs count
+    expired_jobs = JobVacancy.objects.filter(
+        expiry_date__lt=timezone.now().date(),
+        is_approved=True
+    ).count()
+    
+    context = {
+        'db_status': db_status,
+        'cache_status': cache_status,
+        'failed_ingestions': failed_ingestions,
+        'stale_ingestions': stale_ingestions,
+        'stale_count': stale_ingestions.count(),
+        'expired_jobs': expired_jobs,
+        'django_version': __import__('django').get_version(),
+    }
+    
+    return render(request, 'dashboard/system_health.html', context)

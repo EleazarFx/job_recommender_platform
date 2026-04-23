@@ -1,6 +1,7 @@
 """
 Authentication views with Email OTP reset functionality.
 """
+import socket
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -25,11 +26,129 @@ from .forms import (
 )
 
 class RegisterView(CreateView):
-    """User registration view - restricted account types."""
+    """User registration view - restricted account types with email verification."""
     model = User
     form_class = CustomUserCreationForm
     template_name = 'accounts/register.html'
-    success_url = reverse_lazy('accounts:profile_setup')
+    success_url = reverse_lazy('accounts:login')  # Changed - require email verification first
+    
+    def form_valid(self, form):
+        """Create inactive user and send verification email."""
+        if form.cleaned_data.get('user_type') == 'ADMIN':
+            messages.error(
+                self.request,
+                'Administrator accounts cannot be created through public registration.'
+            )
+            return self.form_invalid(form)
+        
+        with transaction.atomic():
+            response = super().form_valid(form)
+            
+            # Set user as inactive until email verification
+            self.object.is_active = False
+            self.object.is_staff = False
+            self.object.is_superuser = False
+            self.object.save()
+            
+            # Create email verification token
+            verification_token = PasswordResetOTP.objects.create(
+                user=self.object
+            )
+            
+            # Send verification email
+            self.send_verification_email(self.object, verification_token)
+            
+            messages.success(
+                self.request,
+                f'Welcome {self.object.first_name}! Please check your email to verify your account.'
+            )
+        
+        return redirect('accounts:login')
+    
+    def send_verification_email(self, user, token):
+        """Send email verification link."""
+        subject = f'Verify Your Email - {settings.SITE_NAME}'
+        verification_url = self.request.build_absolute_uri(
+            reverse('accounts:verify_email', kwargs={'code': token.code})
+        )
+        
+        message = f"""
+        Hello {user.get_full_name()},
+        
+        Thank you for registering with {settings.SITE_NAME}!
+        
+        Please verify your email address by entering the code below:
+        
+        {token.code}
+        
+        Or click this link:
+        {verification_url}
+        
+        This code will expire in 24 hours.
+        
+        Best regards,
+        {settings.SITE_NAME} Team
+        """
+        
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+
+
+
+
+class EmailVerificationView(View):
+    """Verify user email with OTP."""
+    template_name = 'accounts/verify_email.html'
+    
+    def get(self, request, code=None):
+        return render(request, self.template_name, {'code': code})
+    
+    def post(self, request):
+        code = request.POST.get('code')
+        
+        if not code:
+            messages.error(request, 'Please enter the verification code.')
+            return render(request, self.template_name)
+        
+        try:
+            otp = PasswordResetOTP.objects.get(
+                code=code,
+                is_used=False,
+                created_at__gte=timezone.now() - timezone.timedelta(hours=24)
+            )
+            
+            user = otp.user
+            
+            if not user.is_active:
+                user.is_active = True
+                user.save()
+                
+                # Create profile
+                Profile.objects.get_or_create(user=user)
+                
+                otp.mark_used()
+                
+                # Log the user in
+                login(request, user)
+                
+                messages.success(
+                    request,
+                    'Email verified successfully! Please complete your profile.'
+                )
+                return redirect('accounts:profile_setup')
+            else:
+                messages.info(request, 'Email already verified. Please login.')
+                return redirect('accounts:login')
+                
+        except PasswordResetOTP.DoesNotExist:
+            messages.error(request, 'Invalid or expired verification code.')
+            return render(request, self.template_name)
+
     
     def form_valid(self, form):
         """Log user in after successful registration with security checks."""
@@ -59,6 +178,51 @@ class RegisterView(CreateView):
         return response
 
 
+
+@require_POST
+def resend_verification(request):
+    """Resend email verification code."""
+    email = request.POST.get('email')
+    
+    if not email:
+        return JsonResponse({'success': False, 'message': 'Email is required.'})
+    
+    try:
+        user = User.objects.get(email=email, is_active=False)
+        
+        # Check rate limiting
+        recent_otp = PasswordResetOTP.objects.filter(
+            user=user,
+            is_used=False,
+            created_at__gte=timezone.now() - timezone.timedelta(minutes=5)
+        ).exists()
+        
+        if recent_otp:
+            return JsonResponse({
+                'success': False,
+                'message': 'Please wait 5 minutes before requesting another code.'
+            })
+        
+        # Create new verification code
+        verification_token = PasswordResetOTP.objects.create(user=user)
+        
+        # Send email
+        view = RegisterView()
+        view.request = request
+        view.send_verification_email(user, verification_token)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Verification code sent successfully!'
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'No unverified account found with this email.'
+        })
+
+
 class CustomLoginView(LoginView):
     """Custom login view with rate limiting."""
     form_class = CustomAuthenticationForm
@@ -68,7 +232,16 @@ class CustomLoginView(LoginView):
     def form_valid(self, form):
         """Log successful login."""
         email = form.cleaned_data.get('username')
-        ip = self.get_client_ip()
+        ip = self.get_client_ip(self.request)
+        
+        # Check if email is verified
+        user = User.objects.get(email=email)
+        if not user.is_active:
+            messages.error(
+                self.request,
+                'Please verify your email address before logging in.'
+            )
+            return self.form_invalid(form)
         
         # Log successful attempt
         LoginAttempt.objects.create(
@@ -77,13 +250,17 @@ class CustomLoginView(LoginView):
             is_successful=True
         )
         
-        messages.success(self.request, f'Welcome back!')
+        # Update last activity
+        user.last_activity = timezone.now()
+        user.save(update_fields=['last_activity'])
+        
+        messages.success(self.request, f'Welcome back, {user.first_name}!')
         return super().form_valid(form)
     
     def form_invalid(self, form):
         """Log failed attempt and apply rate limiting."""
         email = self.request.POST.get('username', '')
-        ip = self.get_client_ip()
+        ip = self.get_client_ip(self.request)
         
         # Log failed attempt
         LoginAttempt.objects.create(
@@ -92,17 +269,41 @@ class CustomLoginView(LoginView):
             is_successful=False
         )
         
-        messages.error(
-            self.request,
-            'Invalid email or password. Please try again.'
-        )
+        # Check rate limiting
+        recent_failures = LoginAttempt.objects.filter(
+            email=email,
+            ip_address=ip,
+            is_successful=False,
+            attempt_time__gte=timezone.now() - timezone.timedelta(minutes=15)
+        ).count()
+        
+        if recent_failures >= 5:
+            messages.error(
+                self.request,
+                'Too many failed attempts. Please try again in 15 minutes.'
+            )
+        elif recent_failures >= 3:
+            messages.warning(
+                self.request,
+                f'Invalid credentials. You have {5 - recent_failures} attempts remaining.'
+            )
+        else:
+            messages.error(
+                self.request,
+                'Invalid email or password. Please try again.'
+            )
+        
         return super().form_invalid(form)
     
     @staticmethod
-    def get_client_ip():
+    def get_client_ip(request):
         """Extract client IP from request."""
-        import socket
-        return socket.gethostbyname(socket.gethostname())
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            ip = request.META.get('REMOTE_ADDR', '')
+        return ip
 
 
 class PasswordResetRequestView(View):
@@ -223,6 +424,61 @@ class PasswordResetVerifyView(View):
         return render(request, self.template_name, {'form': form})
 
 
+
+@login_required
+def change_password(request):
+    """Change password for logged-in users."""
+    from django.contrib.auth.forms import PasswordChangeForm
+    
+    if request.method == 'POST':
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('accounts:profile')
+        else:
+            messages.error(request, 'Please correct the error below.')
+    else:
+        form = PasswordChangeForm(user=request.user)
+    
+    return render(request, 'accounts/change_password.html', {'form': form})
+
+
+
+@login_required
+@require_POST
+def delete_account(request):
+    """Allow users to delete their own account."""
+    user = request.user
+    
+    # Verify password before deletion
+    password = request.POST.get('password')
+    if not user.check_password(password):
+        return JsonResponse({
+            'success': False,
+            'message': 'Incorrect password. Account not deleted.'
+        })
+    
+    # Soft delete or hard delete based on preference
+    user_email = user.email
+    
+    # Option 1: Hard delete
+    user.delete()
+    
+    # Option 2: Soft delete (deactivate)
+    # user.is_active = False
+    # user.save()
+    
+    logout(request)
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Your account has been deleted successfully.'
+    })
+
+
+
 @method_decorator(login_required, name='dispatch')
 class ProfileSetupView(UpdateView):
     """Complete profile after registration."""
@@ -305,3 +561,48 @@ def resend_otp(request):
         
     except User.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'User not found'})
+
+
+
+
+@login_required
+def profile_stats_api(request):
+    """API endpoint for profile statistics."""
+    profile = request.user.profile
+    
+    data = {
+        'completion_percentage': request.user.profile_completion_percentage,
+        'skills': profile.get_skills_list(),
+        'locations': profile.get_preferred_locations_list(),
+        'experience_level': profile.get_experience_level_display(),
+        'years_of_experience': profile.years_of_experience,
+    }
+    
+    return JsonResponse(data)
+
+
+@login_required
+@require_POST
+def update_profile_ajax(request):
+    """AJAX endpoint for updating profile fields."""
+    import json
+    
+    data = json.loads(request.body)
+    field = data.get('field')
+    value = data.get('value')
+    
+    allowed_fields = ['skills', 'qualifications', 'preferred_locations']
+    
+    if field not in allowed_fields:
+        return JsonResponse({'success': False, 'message': 'Invalid field.'})
+    
+    profile = request.user.profile
+    setattr(profile, field, value)
+    profile.save()
+    
+    request.user.update_profile_completion()
+    
+    return JsonResponse({
+        'success': True,
+        'completion': request.user.profile_completion_percentage
+    })

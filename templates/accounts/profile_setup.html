@@ -1,140 +1,426 @@
-{% extends 'base/base.html' %} {% load crispy_forms_tags %} {% block title%}Complete Your Profile - {{ block.super }}{% endblock %} {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-      <div class="card shadow-sm">
-        <div class="card-body p-4">
-          <h2 class="card-title text-center mb-4">
-            <i class="fas fa-user-edit text-primary"></i> Complete Your Profile
-          </h2>
+{% extends 'base/base.html' %}
+{% load crispy_forms_tags %}
 
-          <p class="text-muted text-center mb-4">
-            Help us find the best job matches for you by completing your
-            profile.
-          </p>
+{% block title %}Complete Your Profile - {{ block.super }}{% endblock %}
 
-          <form method="post" enctype="multipart/form-data" novalidate>
-            {% csrf_token %}
-
-            <div class="mb-3">
-              <label class="form-label">Profile Picture (Optional)</label>
-              {{ form.avatar }} {% if form.avatar.errors %}
-              <div class="invalid-feedback d-block">
-                {{ form.avatar.errors|join:", " }}
-              </div>
-              {% endif %}
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Skills</label>
-              {{ form.skills }} {% if form.skills.errors %}
-              <div class="invalid-feedback d-block">
-                {{ form.skills.errors|join:", " }}
-              </div>
-              {% endif %}
-              <small class="form-text text-muted">
-                Enter your skills separated by commas (e.g., Python, Django,
-                Project Management)
-              </small>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Qualifications</label>
-              {{ form.qualifications }} {% if form.qualifications.errors %}
-              <div class="invalid-feedback d-block">
-                {{ form.qualifications.errors|join:", " }}
-              </div>
-              {% endif %}
-              <small class="form-text text-muted">
-                List your degrees, certifications, and courses
-              </small>
-            </div>
-
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Experience Level</label>
-                {{ form.experience_level }} 
-                {% if form.experience_level.errors %}
-                    <div class="invalid-feedback d-block">
-                    {{ form.experience_level.errors|join:", " }}
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            
+            {# Progress Indicator #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                                <i class="fas fa-user-edit fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h2 class="mb-1">Complete Your Profile</h2>
+                            <p class="text-muted mb-0">
+                                {% if user.user_type == 'JOB_SEEKER' %}
+                                Help us find the best job matches for you by completing your profile.
+                                {% elif user.user_type == 'EMPLOYER' %}
+                                Set up your employer profile to start posting jobs.
+                                {% else %}
+                                Tell us more about yourself.
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <div class="progress" style="width: 100px; height: 8px;">
+                                <div class="progress-bar bg-success" style="width: 0%" id="formProgress"></div>
+                            </div>
+                            <small class="text-muted" id="progressText">0% complete</small>
+                        </div>
                     </div>
-                {% endif %}
-              </div>
-
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Years of Experience</label>
-                {{ form.years_of_experience }} 
-                {% if form.years_of_experience.errors %}
-                    <div class="invalid-feedback d-block">
-                    {{ form.years_of_experience.errors|join:", " }}
+                </div>
+            </div>
+            
+            {# Role Indicator #}
+            <div class="alert alert-info border-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <strong>You are setting up a 
+                            {% if user.user_type == 'JOB_SEEKER' %}
+                            Job Seeker
+                            {% elif user.user_type == 'EMPLOYER' %}
+                            Employer
+                            {% else %}
+                            {{ user.get_user_type_display }}
+                            {% endif %}
+                            profile.
+                        </strong>
+                        <br>
+                        <small>
+                            {% if user.user_type == 'JOB_SEEKER' %}
+                            Add your skills and preferences to get personalized job recommendations.
+                            {% elif user.user_type == 'EMPLOYER' %}
+                            Complete your company profile to start posting jobs.
+                            {% endif %}
+                        </small>
                     </div>
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Preferred Locations</label>
-              {{ form.preferred_locations }} 
-              {% if form.preferred_locations.errors %}
-                <div class="invalid-feedback d-block">
-                    {{ form.preferred_locations.errors|join:", " }}
                 </div>
-              {% endif %}
-              <small class="form-text text-muted">
-                Cities or districts you prefer to work in (e.g., Lilongwe,
-                Blantyre, Remote)
-              </small>
             </div>
 
-            <div class="mb-3">
-              <label class="form-label">Preferred Job Types</label>
-              <div class="border rounded p-3">
-                {% for value, label in form.preferred_job_types.field.choices %}
-                <div class="form-check form-check-inline">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    name="preferred_job_types"
-                    value="{{ value }}"
-                    id="job_type_{{ value }}"
-                    {%
-                    if
-                    value
-                    in
-                    form.preferred_job_types.value
-                    %}checked{%
-                    endif
-                    %}
-                  />
-                  <label class="form-check-label" for="job_type_{{ value }}">
-                    {{ label }}
-                  </label>
+            <div class="card shadow-sm">
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" novalidate id="profileForm">
+                        {% csrf_token %}
+                        
+                        {# ============================================ #}
+                        {# COMMON FIELDS FOR ALL USERS                #}
+                        {# ============================================ #}
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-camera text-primary me-2"></i>Profile Picture (Optional)
+                            </label>
+                            <div class="border rounded p-3 bg-light">
+                                <div class="row align-items-center">
+                                    <div class="col-md-8">
+                                        {{ form.avatar }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div id="avatarPreview" class="text-center">
+                                            <i class="fas fa-user-circle fa-4x text-muted"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if form.avatar.errors %}
+                            <div class="invalid-feedback d-block">{{ form.avatar.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        {# ============================================ #}
+                        {# JOB SEEKER SPECIFIC FIELDS                 #}
+                        {# ============================================ #}
+                        {% if user.user_type == 'JOB_SEEKER' %}
+                        
+                        <div class="section-header mb-3">
+                            <h5 class="mb-0"><i class="fas fa-code text-primary me-2"></i>Skills & Expertise</h5>
+                            <hr class="mt-1">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Skills *</label>
+                            {{ form.skills }}
+                            {% if form.skills.errors %}
+                            <div class="invalid-feedback d-block">{{ form.skills.errors|join:", " }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <i class="fas fa-lightbulb text-warning me-1"></i>
+                                Enter your skills separated by commas (e.g., Python, Django, Project Management)
+                            </small>
+                            <div class="mt-2" id="skillsPreview"></div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Qualifications</label>
+                            {{ form.qualifications }}
+                            {% if form.qualifications.errors %}
+                            <div class="invalid-feedback d-block">{{ form.qualifications.errors|join:", " }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                List your degrees, certifications, and courses
+                            </small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">Experience Level</label>
+                                {{ form.experience_level }}
+                                {% if form.experience_level.errors %}
+                                <div class="invalid-feedback d-block">{{ form.experience_level.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">Years of Experience</label>
+                                {{ form.years_of_experience }}
+                                {% if form.years_of_experience.errors %}
+                                <div class="invalid-feedback d-block">{{ form.years_of_experience.errors|join:", " }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="section-header mb-3">
+                            <h5 class="mb-0"><i class="fas fa-sliders-h text-primary me-2"></i>Preferences</h5>
+                            <hr class="mt-1">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Preferred Locations</label>
+                            {{ form.preferred_locations }}
+                            {% if form.preferred_locations.errors %}
+                            <div class="invalid-feedback d-block">{{ form.preferred_locations.errors|join:", " }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                Cities or districts you prefer to work in (e.g., Lilongwe, Blantyre, Remote)
+                            </small>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLocation('Lilongwe')">Lilongwe</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLocation('Blantyre')">Blantyre</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLocation('Mzuzu')">Mzuzu</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLocation('Remote')">Remote</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Preferred Job Types</label>
+                            <div class="border rounded p-3 bg-light">
+                                <div class="row">
+                                    {% for value, label in form.preferred_job_types.field.choices %}
+                                    <div class="col-md-4 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   name="preferred_job_types" value="{{ value }}"
+                                                   id="job_type_{{ value }}"
+                                                   {% if value in form.preferred_job_types.value %}checked{% endif %}>
+                                            <label class="form-check-label" for="job_type_{{ value }}">
+                                                <i class="fas fa-{% if value == 'FULL_TIME' %}building{% elif value == 'PART_TIME' %}clock{% elif value == 'CONTRACT' %}file-contract{% elif value == 'INTERNSHIP' %}graduation-cap{% elif value == 'REMOTE' %}home{% else %}briefcase{% endif %} me-1"></i>
+                                                {{ label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% if form.preferred_job_types.errors %}
+                            <div class="invalid-feedback d-block">{{ form.preferred_job_types.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Upload CV (Optional)</label>
+                            <div class="border rounded p-3 bg-light">
+                                {{ form.cv_file }}
+                                <small class="form-text text-muted d-block mt-2">
+                                    <i class="fas fa-shield-alt text-success me-1"></i>
+                                    We'll extract skills from your CV to improve job matches. Your CV is processed securely and not stored permanently.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        {% endif %}
+                        
+                        {# ============================================ #}
+                        {# EMPLOYER SPECIFIC FIELDS                   #}
+                        {# ============================================ #}
+                        {% if user.user_type == 'EMPLOYER' %}
+                        
+                        <div class="section-header mb-3">
+                            <h5 class="mb-0"><i class="fas fa-building text-primary me-2"></i>Company Information</h5>
+                            <hr class="mt-1">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Company Name *</label>
+                            {{ form.company_name }}
+                            {% if form.company_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.company_name.errors|join:", " }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">Industry</label>
+                                {{ form.industry }}
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                <label class="form-label fw-bold">Company Size</label>
+                                {{ form.company_size }}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Company Website</label>
+                            {{ form.company_website }}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Company Location</label>
+                            {{ form.company_location }}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Company Description</label>
+                            {{ form.company_description }}
+                            <small class="form-text text-muted">
+                                Tell potential applicants about your company
+                            </small>
+                        </div>
+                        
+                        <div class="alert alert-info border-info mb-4">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            <strong>Verification:</strong> Complete your company profile to apply for employer verification. 
+                            Verified employers get auto-approved job postings and a trust badge.
+                        </div>
+                        
+                        {% endif %}
+
+                        {# ============================================ #}
+                        {# FORM ACTIONS                              #}
+                        {# ============================================ #}
+                        <div class="d-flex gap-2 pt-3 border-top">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Profile
+                            </button>
+                            <a href="{% url 'core:home' %}" class="btn btn-outline-secondary">
+                                Skip for now
+                            </a>
+                        </div>
+                    </form>
                 </div>
-                {% endfor %}
-              </div>
-              {% if form.preferred_job_types.errors %}
-              <div class="invalid-feedback d-block">
-                {{ form.preferred_job_types.errors|join:", " }}
-              </div>
-              {% endif %}
-              <small class="form-text text-muted">
-                Select the types of jobs you're interested in (optional)
-              </small>
             </div>
-
-            <button type="submit" class="btn btn-primary w-100 mb-3">
-              <i class="fas fa-save"></i> Save Profile
-            </button>
-
-            <div class="text-center">
-              <a href="{% url 'core:home' %}" class="text-decoration-none">
-                Skip for now
-              </a>
-            </div>
-          </form>
         </div>
-      </div>
     </div>
-  </div>
 </div>
+
+<script>
+// ============================================
+// AVATAR PREVIEW
+// ============================================
+document.getElementById('id_avatar')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const preview = document.getElementById('avatarPreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" class="img-fluid rounded-circle" style="max-width: 80px; height: 80px; object-fit: cover;">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '<i class="fas fa-user-circle fa-4x text-muted"></i>';
+    }
+});
+
+// ============================================
+// SKILLS PREVIEW (Job Seeker)
+// ============================================
+const skillsInput = document.getElementById('id_skills');
+const skillsPreview = document.getElementById('skillsPreview');
+
+if (skillsInput) {
+    skillsInput.addEventListener('input', function() {
+        const skills = this.value.split(',').map(s => s.trim()).filter(s => s);
+        if (skills.length > 0) {
+            skillsPreview.innerHTML = skills.map(skill => 
+                `<span class="badge bg-primary text-white p-2 me-1 mb-1">${skill}</span>`
+            ).join('');
+        } else {
+            skillsPreview.innerHTML = '';
+        }
+        updateProgress();
+    });
+}
+
+// ============================================
+// LOCATION QUICK ADD (Job Seeker)
+// ============================================
+function addLocation(location) {
+    const input = document.getElementById('id_preferred_locations');
+    const current = input.value;
+    if (!current.includes(location)) {
+        input.value = current ? `${current}, ${location}` : location;
+    }
+}
+
+// ============================================
+// FORM PROGRESS TRACKING
+// ============================================
+function updateProgress() {
+    const form = document.getElementById('profileForm');
+    const inputs = form.querySelectorAll('input[type="text"], input[type="email"], input[type="number"], textarea, select');
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]:checked');
+    
+    let totalFields = 0;
+    let filledFields = 0;
+    
+    inputs.forEach(input => {
+        if (input.type !== 'hidden' && input.type !== 'file' && input.id !== 'id_avatar') {
+            totalFields++;
+            if (input.value.trim()) filledFields++;
+        }
+    });
+    
+    // Count checkbox groups as one field
+    const jobTypeChecked = form.querySelectorAll('input[name="preferred_job_types"]:checked').length;
+    if (jobTypeChecked > 0) {
+        totalFields++;
+        filledFields++;
+    }
+    
+    const percentage = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
+    document.getElementById('formProgress').style.width = percentage + '%';
+    document.getElementById('progressText').textContent = percentage + '% complete';
+}
+
+// Attach progress tracking
+document.querySelectorAll('#profileForm input, #profileForm textarea, #profileForm select').forEach(el => {
+    el.addEventListener('input', updateProgress);
+    el.addEventListener('change', updateProgress);
+});
+
+// ============================================
+// FORM VALIDATION
+// ============================================
+document.getElementById('profileForm').addEventListener('submit', function(e) {
+    const userType = '{{ user.user_type }}';
+    
+    if (userType === 'JOB_SEEKER') {
+        const skills = document.getElementById('id_skills').value.trim();
+        if (!skills) {
+            e.preventDefault();
+            alert('Please enter at least one skill to help us match you with relevant jobs.');
+            return false;
+        }
+    }
+    
+    if (userType === 'EMPLOYER') {
+        const companyName = document.getElementById('id_company_name')?.value.trim();
+        if (!companyName) {
+            e.preventDefault();
+            alert('Please enter your company name.');
+            return false;
+        }
+    }
+    
+    // Show loading state
+    const btn = this.querySelector('button[type="submit"]');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    btn.disabled = true;
+});
+
+// Initialize progress on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateProgress();
+    if (skillsInput) skillsInput.dispatchEvent(new Event('input'));
+});
+</script>
+
+<style>
+.section-header h5 {
+    color: #333;
+    font-weight: 600;
+}
+
+#formProgress {
+    transition: width 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#skillsPreview {
+    min-height: 30px;
+}
+</style>
 {% endblock %}

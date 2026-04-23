@@ -1,0 +1,167 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Employer Verification - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-building-check"></i> Employer Verification
+            </h1>
+            
+            <!-- Stats -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-warning text-dark">
+                        <div class="card-body">
+                            <h5>Pending Verification</h5>
+                            <h2>{{ total_pending }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h5>Verified Employers</h5>
+                            <h2>{{ total_verified }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending Verifications -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Pending Verification</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th>Email</th>
+                                    <th>Joined</th>
+                                    <th>Jobs Posted</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employer in pending_employers %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ employer.profile.company_name|default:employer.get_full_name }}</strong>
+                                    </td>
+                                    <td>{{ employer.email }}</td>
+                                    <td>{{ employer.date_joined|date:"M d, Y" }}</td>
+                                    <td>{{ employer.posted_jobs.count }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-success verify-btn" 
+                                                data-id="{{ employer.id }}"
+                                                data-email="{{ employer.email }}">
+                                            <i class="fas fa-check"></i> Verify
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-3 text-muted">
+                                        No pending verifications
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Verified Employers -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Verified Employers</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Company</th>
+                                    <th>Email</th>
+                                    <th>Verified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employer in verified_employers %}
+                                <tr>
+                                    <td>{{ employer.profile.company_name|default:employer.get_full_name }}</td>
+                                    <td>{{ employer.email }}</td>
+                                    <td>{{ employer.date_joined|date:"M d, Y" }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-warning unverify-btn" 
+                                                data-id="{{ employer.id }}"
+                                                data-email="{{ employer.email }}">
+                                            <i class="fas fa-undo"></i> Unverify
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-3 text-muted">
+                                        No verified employers
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.verify-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const email = this.dataset.email;
+        
+        if (!confirm(`Verify employer: ${email}?`)) return;
+        
+        fetch(`/dashboard/employers/${id}/verify/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) location.reload();
+        });
+    });
+});
+
+document.querySelectorAll('.unverify-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const email = this.dataset.email;
+        
+        if (!confirm(`Remove verification from: ${email}?`)) return;
+        
+        fetch(`/dashboard/employers/${id}/unverify/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) location.reload();
+        });
+    });
+});
+</script>
+{% endblock %}

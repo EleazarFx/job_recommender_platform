@@ -92,6 +92,19 @@
                     <a href="{% url 'dashboard:reports' %}" class="btn btn-danger">
                         <i class="fas fa-flag"></i> View Reports ({{ total_reports }})
                     </a>
+
+                    <a href="{% url 'dashboard:employer_verification' %}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-building-check"></i> Employer Verification
+                    </a>
+                    <a href="{% url 'dashboard:analytics' %}" class="btn btn-outline-info me-2">
+                        <i class="fas fa-chart-line"></i> Analytics
+                    </a>
+                    <a href="{% url 'dashboard:system_health' %}" class="btn btn-outline-success">
+                        <i class="fas fa-heartbeat"></i> System Health
+                    </a>
+
+
+
                 </div>
             </div>
         </div>

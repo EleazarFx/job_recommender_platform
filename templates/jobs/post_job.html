@@ -1,24 +1,406 @@
 {% extends 'base/base.html' %}
+{% load static %}
 
-{% block title %}Post a Job - {{ block.super }}{% endblock %}
+{% block title %}My Jobs - {{ block.super }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-lg-8 mx-auto">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Post a New Job</h3>
-                </div>
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">
+                <i class="fas fa-briefcase text-primary"></i> My Posted Jobs
+            </h1>
+            <p class="text-muted mb-0">Manage and track all your job postings</p>
+        </div>
+        <div>
+            <a href="{% url 'jobs:post' %}" class="btn btn-success">
+                <i class="fas fa-plus-circle"></i> Post New Job
+            </a>
+        </div>
+    </div>
+    
+    {# VERIFICATION STATUS CARD #}
+    {% if not is_verified %}
+    <div class="alert alert-warning border-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-shield-alt fa-2x me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading mb-1">Get Verified!</h5>
+                <p class="mb-0">
+                    Verified employers get <strong>auto-approved job postings</strong> and a 
+                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Verified Employer</span> badge.
+                </p>
+            </div>
+            <a href="#" class="btn btn-warning">
+                <i class="fas fa-arrow-right"></i> Apply for Verification
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-success border-success mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-check-circle fa-2x me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading mb-1">Verified Employer ✓</h5>
+                <p class="mb-0">
+                    Your jobs are auto-approved and display a verified badge to job seekers.
+                </p>
+            </div>
+            <span class="badge bg-success p-3">
+                <i class="fas fa-check-circle"></i> Verified
+            </span>
+        </div>
+    </div>
+    {% endif %}
+    
+    {# STATISTICS CARDS #}
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white h-100">
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i>
-                        Job posting feature is coming soon!
-                    </div>
-                    <p>In the meantime, please contact us to post a job.</p>
+                    <h6 class="card-title text-white-50">Total Jobs</h6>
+                    <h2 class="mb-0">{{ jobs.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Active Jobs</h6>
+                    <h2 class="mb-0">{{ active_jobs }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-dark-50">Pending Approval</h6>
+                    <h2 class="mb-0">{{ pending_jobs }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-secondary text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Expired</h6>
+                    <h2 class="mb-0">{{ expired_jobs }}</h2>
                 </div>
             </div>
         </div>
     </div>
+    
+    {# TOTAL APPLICATIONS SUMMARY #}
+    {% if total_applications > 0 %}
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-users fa-2x me-3"></i>
+            <div>
+                <strong>{{ total_applications }}</strong> total application{{ total_applications|pluralize }} received across all jobs
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {# JOB LISTINGS #}
+    {% if jobs %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">All Job Postings</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Job Title</th>
+                                        <th>Location</th>
+                                        <th>Posted</th>
+                                        <th>Expires</th>
+                                        <th>Status</th>
+                                        <th>Applications</th>
+                                        <th>Views</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for job in jobs %}
+                                    <tr class="{% if job.is_expired %}table-secondary{% elif not job.is_approved %}table-warning{% endif %}">
+                                        <td>
+                                            <a href="{% url 'jobs:detail' job.pk %}" class="fw-bold text-decoration-none">
+                                                {{ job.title }}
+                                            </a>
+                                            {% if job.is_verified_company %}
+                                            <i class="fas fa-check-circle text-success ms-1" title="Verified"></i>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-map-marker-alt text-muted"></i> 
+                                            {{ job.location_display|default:"Not specified" }}
+                                            {% if job.is_remote %}
+                                            <span class="badge bg-info">Remote</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ job.date_posted|date:"M d, Y" }}</td>
+                                        <td>
+                                            {% if job.is_expired %}
+                                            <span class="text-danger">Expired</span>
+                                            {% else %}
+                                            {{ job.expiry_date|date:"M d, Y" }}
+                                            <br>
+                                            <small class="text-muted">{{ job.expiry_date|timeuntil }} left</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if job.is_approved %}
+                                                {% if job.is_expired %}
+                                                <span class="badge bg-secondary">Expired</span>
+                                                {% else %}
+                                                <span class="badge bg-success">Active</span>
+                                                {% endif %}
+                                            {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-clock"></i> Pending Approval
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'jobs:view_applicants' job.pk %}" class="text-decoration-none">
+                                                <i class="fas fa-users"></i> {{ job.application_count }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <i class="fas fa-eye"></i> {{ job.view_count }}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="{% url 'jobs:detail' job.pk %}" 
+                                                   class="btn btn-sm btn-outline-primary" 
+                                                   title="View">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                
+                                                {% if job.is_approved and not job.is_expired %}
+                                                <button class="btn btn-sm btn-outline-success extend-job-btn" 
+                                                        data-job-id="{{ job.pk }}"
+                                                        title="Extend 30 days">
+                                                    <i class="fas fa-calendar-plus"></i>
+                                                </button>
+                                                {% endif %}
+                                                
+                                                <button class="btn btn-sm btn-outline-danger delete-job-btn" 
+                                                        data-job-id="{{ job.pk }}"
+                                                        data-job-title="{{ job.title }}"
+                                                        title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {# QUICK TIPS SECTION #}
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-lightbulb text-warning"></i> Tips for Better Job Postings</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li>Include specific required skills to attract qualified candidates</li>
+                            <li>Add a detailed job description with clear responsibilities</li>
+                            <li>Display salary information to increase applications</li>
+                            <li>Keep job postings fresh - extend or repost regularly</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-chart-simple"></i> Quick Stats</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="applicationsChart" style="height: 150px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-briefcase fa-4x text-muted mb-3"></i>
+            <h3>You haven't posted any jobs yet</h3>
+            <p class="text-muted mb-4">Start hiring by posting your first job!</p>
+            <a href="{% url 'jobs:post' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus-circle"></i> Post Your First Job
+            </a>
+            
+            {% if not is_verified %}
+            <div class="alert alert-info mt-4">
+                <i class="fas fa-info-circle"></i>
+                <strong>Pro tip:</strong> Get verified first to have your jobs auto-approved!
+            </div>
+            {% endif %}
+        </div>
+    {% endif %}
 </div>
+
+{# DELETE CONFIRMATION MODAL #}
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete "<strong id="deleteJobTitle"></strong>"?</p>
+                <p class="text-danger"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete Job</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ============================================
+// DELETE JOB FUNCTIONALITY
+// ============================================
+let deleteJobId = null;
+
+document.querySelectorAll('.delete-job-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        deleteJobId = this.dataset.jobId;
+        const jobTitle = this.dataset.jobTitle;
+        document.getElementById('deleteJobTitle').textContent = jobTitle;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
+    });
+});
+
+document.getElementById('confirmDeleteBtn')?.addEventListener('click', function() {
+    if (!deleteJobId) return;
+    
+    fetch(`/jobs/${deleteJobId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Error deleting job');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    });
+});
+
+// ============================================
+// EXTEND JOB FUNCTIONALITY
+// ============================================
+document.querySelectorAll('.extend-job-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        
+        if (!confirm('Extend this job posting by 30 days?')) {
+            return;
+        }
+        
+        fetch(`/jobs/${jobId}/extend/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Job extended successfully! New expiry: ' + data.new_expiry);
+                location.reload();
+            } else {
+                alert(data.message || 'Error extending job');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    });
+});
+
+// ============================================
+// APPLICATIONS CHART (if there's data)
+// ============================================
+{% if jobs %}
+const ctx = document.getElementById('applicationsChart')?.getContext('2d');
+if (ctx) {
+    const jobTitles = [
+        {% for job in jobs|slice:":5" %}
+        '{{ job.title|truncatechars:20|escapejs }}',
+        {% endfor %}
+    ];
+    
+    const applicationCounts = [
+        {% for job in jobs|slice:":5" %}
+        {{ job.application_count }},
+        {% endfor %}
+    ];
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: jobTitles,
+            datasets: [{
+                label: 'Applications',
+                data: applicationCounts,
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    stepSize: 1
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+{% endif %}
+</script>
 {% endblock %}

@@ -1,0 +1,691 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Applicants - {{ job.title }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'jobs:my_jobs' %}">My Jobs</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'jobs:detail' job.pk %}">{{ job.title }}</a>
+            </li>
+            <li class="breadcrumb-item active">Applicants</li>
+        </ol>
+    </nav>
+    
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="mb-2">
+                <i class="fas fa-users text-primary"></i> Applicants for {{ job.title }}
+            </h1>
+            <p class="text-muted mb-0">
+                <i class="fas fa-building"></i> {{ job.company_name }} • 
+                <i class="fas fa-map-marker-alt"></i> {{ job.location_display }} • 
+                <i class="fas fa-calendar"></i> Posted {{ job.date_posted|date:"M d, Y" }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'jobs:detail' job.pk %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-eye"></i> View Job
+            </a>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="fas fa-download"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#" onclick="exportAsCSV()">Export as CSV</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="window.print()">Print View</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Total Applicants</h6>
+                    <h2 class="mb-0">{{ total_applications }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">New (Unreviewed)</h6>
+                    <h2 class="mb-0" id="newCount">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-dark-50">Shortlisted</h6>
+                    <h2 class="mb-0" id="shortlistedCount">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <h6 class="card-title text-white-50">Interview Scheduled</h6>
+                    <h2 class="mb-0" id="interviewCount">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filters and Search -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="searchInput" 
+                       placeholder="Search by name, email, or skills...">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="statusFilter">
+                <option value="all">All Statuses</option>
+                <option value="APPLIED">Applied</option>
+                <option value="REVIEWED">Reviewed</option>
+                <option value="SHORTLISTED">Shortlisted</option>
+                <option value="INTERVIEW">Interview</option>
+                <option value="OFFER">Offer</option>
+                <option value="REJECTED">Rejected</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="sortSelect">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="match">Match Score (High to Low)</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+                <i class="fas fa-times"></i> Reset
+            </button>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions Bar -->
+    <div class="alert alert-light border mb-3 d-none" id="bulkActionsBar">
+        <div class="d-flex align-items-center">
+            <div class="form-check me-3">
+                <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                <label class="form-check-label" for="selectAllCheckbox">
+                    Select All
+                </label>
+            </div>
+            <span class="me-3" id="selectedCount">0 selected</span>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary" onclick="bulkUpdateStatus('SHORTLISTED')">
+                    <i class="fas fa-star"></i> Shortlist
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="bulkUpdateStatus('INTERVIEW')">
+                    <i class="fas fa-calendar"></i> Schedule Interview
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="bulkUpdateStatus('REJECTED')">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            </div>
+            <button class="btn btn-sm btn-link text-danger ms-auto" onclick="clearSelection()">
+                Clear Selection
+            </button>
+        </div>
+    </div>
+    
+    {% if applications %}
+        <!-- Desktop View (Table) -->
+        <div class="card d-none d-lg-block">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" class="form-check-input" id="selectAllDesktop">
+                                </th>
+                                <th>Applicant</th>
+                                <th>Applied</th>
+                                <th>Skills</th>
+                                <th>Experience</th>
+                                <th>Match</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="applicantsTableBody">
+                            {% for application in applications %}
+                            <tr class="applicant-row" 
+                                data-status="{{ application.status }}"
+                                data-name="{{ application.applicant.get_full_name|lower }}"
+                                data-email="{{ application.applicant.email|lower }}"
+                                data-date="{{ application.applied_at|date:'Y-m-d H:i:s' }}"
+                                data-match="{{ application.applicant.profile.get_match_score|default:0 }}">
+                                <td>
+                                    <input type="checkbox" class="form-check-input applicant-checkbox" 
+                                           value="{{ application.id }}" data-status="{{ application.status }}">
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if application.applicant.profile.avatar %}
+                                        <img src="{{ application.applicant.profile.avatar.url }}" 
+                                             class="rounded-circle me-2" width="40" height="40">
+                                        {% else %}
+                                        <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" 
+                                             style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ application.applicant.get_full_name|default:application.applicant.email }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ application.applicant.email }}</small>
+                                            {% if application.applicant.profile.phone %}
+                                            <br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-phone"></i> {{ application.applicant.profile.phone }}
+                                            </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {{ application.applied_at|date:"M d, Y" }}
+                                    <br>
+                                    <small class="text-muted">{{ application.applied_at|timesince }} ago</small>
+                                </td>
+                                <td>
+                                    {% for skill in application.applicant.profile.get_skills_list|slice:":3" %}
+                                    <span class="badge bg-light text-dark me-1">{{ skill }}</span>
+                                    {% empty %}
+                                    <span class="text-muted">No skills listed</span>
+                                    {% endfor %}
+                                    {% if application.applicant.profile.get_skills_list|length > 3 %}
+                                    <br>
+                                    <small class="text-muted">
+                                        +{{ application.applicant.profile.get_skills_list|length|add:"-3" }} more
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ application.applicant.profile.get_experience_level_display|default:"Not specified" }}
+                                    {% if application.applicant.profile.years_of_experience %}
+                                    <br>
+                                    <small class="text-muted">{{ application.applicant.profile.years_of_experience }} years</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if application.applicant.profile.get_match_score %}
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2" style="width: 50px; height: 6px;">
+                                            <div class="progress-bar bg-primary" 
+                                                 style="width: {{ application.applicant.profile.get_match_score }}%"></div>
+                                        </div>
+                                        <span class="fw-bold">{{ application.applicant.profile.get_match_score|floatformat:0 }}%</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge status-badge 
+                                        {% if application.status == 'APPLIED' %}bg-secondary
+                                        {% elif application.status == 'REVIEWED' %}bg-info
+                                        {% elif application.status == 'SHORTLISTED' %}bg-warning text-dark
+                                        {% elif application.status == 'INTERVIEW' %}bg-primary
+                                        {% elif application.status == 'OFFER' %}bg-success
+                                        {% elif application.status == 'REJECTED' %}bg-danger
+                                        {% endif %}">
+                                        {{ application.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="viewApplicant({{ application.applicant.id }})"
+                                                title="View Profile">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success dropdown-toggle" 
+                                                data-bs-toggle="dropdown"
+                                                title="Update Status">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="#" 
+                                                   onclick="updateStatus({{ application.id }}, 'REVIEWED')">
+                                                    <i class="fas fa-check text-info"></i> Mark as Reviewed
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" 
+                                                   onclick="updateStatus({{ application.id }}, 'SHORTLISTED')">
+                                                    <i class="fas fa-star text-warning"></i> Shortlist
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" 
+                                                   onclick="updateStatus({{ application.id }}, 'INTERVIEW')">
+                                                    <i class="fas fa-calendar text-primary"></i> Schedule Interview
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#" 
+                                                   onclick="updateStatus({{ application.id }}, 'OFFER')">
+                                                    <i class="fas fa-trophy text-success"></i> Extend Offer
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#" 
+                                                   onclick="updateStatus({{ application.id }}, 'REJECTED')">
+                                                    <i class="fas fa-times"></i> Reject
+                                                </a>
+                                            </li>
+                                        </ul>
+                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                onclick="contactApplicant('{{ application.applicant.email }}')"
+                                                title="Contact">
+                                            <i class="fas fa-envelope"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile View (Cards) -->
+        <div class="d-lg-none">
+            {% for application in applications %}
+            <div class="card mb-3 applicant-card" 
+                 data-status="{{ application.status }}"
+                 data-name="{{ application.applicant.get_full_name|lower }}"
+                 data-email="{{ application.applicant.email|lower }}">
+                <div class="card-body">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input applicant-checkbox" 
+                               value="{{ application.id }}">
+                        <label class="form-check-label">Select</label>
+                    </div>
+                    
+                    <div class="d-flex align-items-start">
+                        <div class="me-3">
+                            {% if application.applicant.profile.avatar %}
+                            <img src="{{ application.applicant.profile.avatar.url }}" 
+                                 class="rounded-circle" width="50" height="50">
+                            {% else %}
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center" 
+                                 style="width: 50px; height: 50px;">
+                                <i class="fas fa-user fa-2x text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">{{ application.applicant.get_full_name|default:application.applicant.email }}</h5>
+                            <p class="text-muted mb-1">{{ application.applicant.email }}</p>
+                            <p class="mb-1">
+                                <span class="badge status-badge 
+                                    {% if application.status == 'APPLIED' %}bg-secondary
+                                    {% elif application.status == 'REVIEWED' %}bg-info
+                                    {% elif application.status == 'SHORTLISTED' %}bg-warning
+                                    {% elif application.status == 'INTERVIEW' %}bg-primary
+                                    {% elif application.status == 'OFFER' %}bg-success
+                                    {% elif application.status == 'REJECTED' %}bg-danger
+                                    {% endif %}">
+                                    {{ application.get_status_display }}
+                                </span>
+                                <small class="text-muted ms-2">
+                                    Applied {{ application.applied_at|timesince }} ago
+                                </small>
+                            </p>
+                            
+                            <!-- Skills -->
+                            <div class="mb-2">
+                                {% for skill in application.applicant.profile.get_skills_list|slice:":3" %}
+                                <span class="badge bg-light text-dark me-1">{{ skill }}</span>
+                                {% endfor %}
+                            </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="btn-group w-100">
+                                <button class="btn btn-outline-primary btn-sm" 
+                                        onclick="viewApplicant({{ application.applicant.id }})">
+                                    <i class="fas fa-eye"></i> View
+                                </button>
+                                <button class="btn btn-outline-success btn-sm dropdown-toggle" 
+                                        data-bs-toggle="dropdown">
+                                    <i class="fas fa-edit"></i> Status
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="updateStatus({{ application.id }}, 'SHORTLISTED')">Shortlist</a></li>
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="updateStatus({{ application.id }}, 'INTERVIEW')">Interview</a></li>
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="updateStatus({{ application.id }}, 'OFFER')">Offer</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#" 
+                                           onclick="updateStatus({{ application.id }}, 'REJECTED')">Reject</a></li>
+                                </ul>
+                                <button class="btn btn-outline-secondary btn-sm" 
+                                        onclick="contactApplicant('{{ application.applicant.email }}')">
+                                    <i class="fas fa-envelope"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Notes Modal (for status updates) -->
+        <div class="modal fade" id="notesModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Notes (Optional)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <textarea class="form-control" id="statusNotes" rows="3" 
+                                  placeholder="Add any notes about this applicant..."></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="confirmStatusBtn">Update Status</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <i class="fas fa-users fa-5x text-muted mb-4"></i>
+            <h2>No applicants yet</h2>
+            <p class="text-muted mb-4">When someone applies to this job, they'll appear here.</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5><i class="fas fa-lightbulb text-warning"></i> Tips to attract applicants</h5>
+                            <ul class="text-start">
+                                <li>Make sure your job description is clear and detailed</li>
+                                <li>Include salary information - jobs with salary get 40% more applications</li>
+                                <li>Share your job posting on social media</li>
+                                <li>Consider featuring this job for more visibility</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{% url 'jobs:detail' job.pk %}" class="btn btn-primary">
+                    <i class="fas fa-eye"></i> View Job Posting
+                </a>
+                <a href="{% url 'jobs:post' %}" class="btn btn-outline-primary ms-2">
+                    <i class="fas fa-plus"></i> Post Another Job
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================
+// GLOBAL VARIABLES
+// ============================================
+let pendingStatusUpdate = null;
+let selectedApplicants = new Set();
+
+// ============================================
+// STATISTICS CALCULATION
+// ============================================
+function updateStats() {
+    const rows = document.querySelectorAll('.applicant-row');
+    let newCount = 0, shortlisted = 0, interview = 0;
+    
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        if (status === 'APPLIED') newCount++;
+        if (status === 'SHORTLISTED') shortlisted++;
+        if (status === 'INTERVIEW') interview++;
+    });
+    
+    document.getElementById('newCount').textContent = newCount;
+    document.getElementById('shortlistedCount').textContent = shortlisted;
+    document.getElementById('interviewCount').textContent = interview;
+}
+
+// ============================================
+// SEARCH AND FILTER
+// ============================================
+document.getElementById('searchInput').addEventListener('input', filterApplicants);
+document.getElementById('statusFilter').addEventListener('change', filterApplicants);
+document.getElementById('sortSelect').addEventListener('change', sortApplicants);
+
+function filterApplicants() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    document.querySelectorAll('.applicant-row, .applicant-card').forEach(item => {
+        const name = item.dataset.name || '';
+        const email = item.dataset.email || '';
+        const status = item.dataset.status;
+        
+        const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || status === statusFilter;
+        
+        const card = item.closest('tr, .applicant-card');
+        if (card) {
+            card.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+        }
+    });
+}
+
+function sortApplicants() {
+    const sortBy = document.getElementById('sortSelect').value;
+    const tbody = document.getElementById('applicantsTableBody');
+    const rows = Array.from(document.querySelectorAll('.applicant-row'));
+    
+    rows.sort((a, b) => {
+        switch(sortBy) {
+            case 'newest':
+                return b.dataset.date.localeCompare(a.dataset.date);
+            case 'oldest':
+                return a.dataset.date.localeCompare(b.dataset.date);
+            case 'name':
+                return a.dataset.name.localeCompare(b.dataset.name);
+            case 'match':
+                return parseFloat(b.dataset.match) - parseFloat(a.dataset.match);
+            default:
+                return 0;
+        }
+    });
+    
+    rows.forEach(row => {
+        tbody.appendChild(row.closest('tr'));
+    });
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = 'all';
+    document.getElementById('sortSelect').value = 'newest';
+    filterApplicants();
+    sortApplicants();
+}
+
+// ============================================
+// STATUS MANAGEMENT
+// ============================================
+function updateStatus(applicationId, newStatus) {
+    pendingStatusUpdate = { id: applicationId, status: newStatus };
+    
+    if (newStatus === 'REJECTED' || newStatus === 'INTERVIEW') {
+        // Show notes modal for these statuses
+        const modal = new bootstrap.Modal(document.getElementById('notesModal'));
+        modal.show();
+    } else {
+        performStatusUpdate();
+    }
+}
+
+document.getElementById('confirmStatusBtn').addEventListener('click', function() {
+    performStatusUpdate();
+    bootstrap.Modal.getInstance(document.getElementById('notesModal')).hide();
+});
+
+function performStatusUpdate() {
+    if (!pendingStatusUpdate) return;
+    
+    const notes = document.getElementById('statusNotes').value;
+    
+    fetch(`/api/applications/${pendingStatusUpdate.id}/update-status/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            status: pendingStatusUpdate.status,
+            notes: notes
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error updating status: ' + data.message);
+        }
+    });
+    
+    pendingStatusUpdate = null;
+    document.getElementById('statusNotes').value = '';
+}
+
+// ============================================
+// BULK ACTIONS
+// ============================================
+document.querySelectorAll('.applicant-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateBulkBar);
+});
+
+document.getElementById('selectAllDesktop').addEventListener('change', function() {
+    document.querySelectorAll('.applicant-checkbox').forEach(cb => {
+        cb.checked = this.checked;
+    });
+    updateBulkBar();
+});
+
+function updateBulkBar() {
+    selectedApplicants.clear();
+    document.querySelectorAll('.applicant-checkbox:checked').forEach(cb => {
+        selectedApplicants.add(cb.value);
+    });
+    
+    const bar = document.getElementById('bulkActionsBar');
+    const countSpan = document.getElementById('selectedCount');
+    
+    if (selectedApplicants.size > 0) {
+        bar.classList.remove('d-none');
+        countSpan.textContent = `${selectedApplicants.size} selected`;
+    } else {
+        bar.classList.add('d-none');
+    }
+}
+
+function clearSelection() {
+    document.querySelectorAll('.applicant-checkbox').forEach(cb => cb.checked = false);
+    selectedApplicants.clear();
+    document.getElementById('bulkActionsBar').classList.add('d-none');
+}
+
+function bulkUpdateStatus(status) {
+    if (selectedApplicants.size === 0) return;
+    
+    if (!confirm(`Update ${selectedApplicants.size} applicant(s) to ${status}?`)) {
+        return;
+    }
+    
+    const promises = Array.from(selectedApplicants).map(id =>
+        fetch(`/api/applications/${id}/update-status/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: status })
+        })
+    );
+    
+    Promise.all(promises).then(() => {
+        location.reload();
+    });
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function viewApplicant(userId) {
+    window.open(`/accounts/profile/${userId}/`, '_blank');
+}
+
+function contactApplicant(email) {
+    window.location.href = `mailto:${email}`;
+}
+
+function exportAsCSV() {
+    const rows = [];
+    const headers = ['Name', 'Email', 'Applied Date', 'Status', 'Skills', 'Experience'];
+    rows.push(headers);
+    
+    document.querySelectorAll('.applicant-row').forEach(row => {
+        const name = row.querySelector('td:nth-child(2) strong')?.textContent || '';
+        const email = row.querySelector('td:nth-child(2) small')?.textContent || '';
+        const date = row.querySelector('td:nth-child(3)')?.textContent.split('\n')[0].trim() || '';
+        const status = row.querySelector('.status-badge')?.textContent.trim() || '';
+        const skills = Array.from(row.querySelectorAll('td:nth-child(4) .badge'))
+            .map(b => b.textContent.trim()).join(', ');
+        const experience = row.querySelector('td:nth-child(5)')?.textContent.trim() || '';
+        
+        rows.push([name, email, date, status, skills, experience]);
+    });
+    
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `applicants-{{ job.title|slugify }}.csv`;
+    a.click();
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateStats();
+});
+</script>
+{% endblock %}

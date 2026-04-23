@@ -24,188 +24,330 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-<!-- Navigation Bar -->
-<nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
-    <div class="container">
-        <a class="navbar-brand fw-bold" href="{% url 'core:home' %}">
-            <i class="fas fa-briefcase text-primary"></i> {{ SITE_NAME }}
-        </a>
-        
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'core:home' %}">
-                        <i class="fas fa-home"></i> Home
-                    </a>
-                </li>
-                
-                {% if user.is_authenticated %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'jobs:list' %}">
-                        <i class="fas fa-search"></i> Find Jobs
-                    </a>
-                </li>
-                
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'recommendations:recommended' %}">
-                        <i class="fas fa-robot"></i> Recommended
-                    </a>
-                </li>
-                
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'jobs:saved' %}">
-                        <i class="far fa-bookmark"></i> Saved Jobs
-                    </a>
-                </li>
-                
-                {# DASHBOARD LINK - Only show to staff users #}
-                {% if user.is_staff %}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'dashboard:home' %}">
-                                <i class="fas fa-chart-pie"></i> Overview
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'dashboard:ingestion' %}">
-                                <i class="fas fa-upload"></i> Data Ingestion
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'dashboard:job_approval' %}">
-                                <i class="fas fa-check-circle"></i> Job Approval
-                                {% with pending_count=pending_approvals|default:0 %}
-                                {% if pending_count > 0 %}
-                                <span class="badge bg-warning">{{ pending_count }}</span>
-                                {% endif %}
-                                {% endwith %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'dashboard:reports' %}">
-                                <i class="fas fa-flag"></i> Reports
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'admin:index' %}">
-                                <i class="fas fa-cog"></i> Django Admin
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                {% endif %}
-                {% endif %}
-            </ul>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="{% url 'core:home' %}">
+                <i class="fas fa-briefcase text-primary"></i> {{ SITE_NAME }}
+            </a>
             
-            <ul class="navbar-nav ms-auto">
-                <!-- Dark/Light Mode Toggle -->
-                <li class="nav-item me-2">
-                    <button class="btn btn-outline-secondary" id="themeToggle">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                </li>
-                
-                {% if user.is_authenticated %}
-                <!-- Notifications -->
-                <li class="nav-item dropdown me-2">
-                    <a class="nav-link position-relative" href="#" data-bs-toggle="dropdown" id="notificationDropdownBtn">
-                        <i class="fas fa-bell"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount">
-                            0
-                        </span>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-end" style="min-width: 300px;">
-                        <div class="d-flex justify-content-between align-items-center px-3 py-2">
-                            <h6 class="mb-0">Notifications</h6>
-                            <a href="{% url 'notifications:list' %}" class="text-decoration-none small">View All</a>
-                        </div>
-                        <div id="notificationList" style="max-height: 300px; overflow-y: auto;">
-                            <div class="dropdown-item text-muted">Loading...</div>
-                        </div>
-                    </div>
-                </li>
-                
-                <!-- User Menu -->
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-                        <i class="fas fa-user-circle"></i> {{ user.first_name|default:user.email }}
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                <i class="fas fa-user"></i> My Profile
-                                {% if user.profile_completion_percentage < 100 %}
-                                <span class="badge bg-warning">{{ user.profile_completion_percentage }}%</span>
-                                {% endif %}
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'notifications:preferences' %}">
-                                <i class="fas fa-bell"></i> Notification Settings
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'notifications:job_alerts' %}">
-                                <i class="fas fa-search"></i> Job Alerts
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:home' %}">
+                            <i class="fas fa-home"></i> Home
+                        </a>
+                    </li>
+                    
+                    {% if user.is_authenticated %}
+                        {# ALL AUTHENTICATED USERS #}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'jobs:list' %}">
+                                <i class="fas fa-search"></i> Find Jobs
                             </a>
                         </li>
                         
-                        {% if user.user_type == 'EMPLOYER' or user.is_staff %}
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'jobs:post' %}">
-                                <i class="fas fa-plus-circle"></i> Post a Job
+                        {# JOB SEEKER SPECIFIC LINKS #}
+                        {% if user.user_type == 'JOB_SEEKER' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'recommendations:recommended' %}">
+                                <i class="fas fa-robot"></i> Recommended
+                                <span class="badge bg-success ms-1">AI</span>
                             </a>
                         </li>
-                        <li>
-                            <a class="dropdown-item" href="{% url 'jobs:my_jobs' %}">
-                                <i class="fas fa-list"></i> My Posted Jobs
+                        
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'jobs:saved' %}">
+                                <i class="far fa-bookmark"></i> Saved Jobs
+                                <span class="badge bg-secondary saved-count-nav">0</span>
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'recommendations:skill_gaps' %}">
+                                <i class="fas fa-chart-line"></i> Skill Insights
                             </a>
                         </li>
                         {% endif %}
                         
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form method="post" action="{% url 'accounts:logout' %}">
-                                {% csrf_token %}
-                                <button type="submit" class="dropdown-item text-danger">
-                                    <i class="fas fa-sign-out-alt"></i> Logout
-                                </button>
-                            </form>
+                        {# EMPLOYER SPECIFIC LINKS #}
+                        {% if user.user_type == 'EMPLOYER' %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                <i class="fas fa-briefcase"></i> Employer
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:post' %}">
+                                        <i class="fas fa-plus-circle text-success"></i> Post a Job
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:my_jobs' %}">
+                                        <i class="fas fa-list"></i> My Posted Jobs
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:list' %}?posted_by={{ user.id }}">
+                                        <i class="fas fa-eye"></i> View My Listings
+                                    </a>
+                                </li>
+                                {% if not user.is_verified_employer %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <span class="dropdown-item text-muted">
+                                        <i class="fas fa-shield-alt"></i> 
+                                        <a href="#" class="text-decoration-none">Get Verified</a> for auto-approval
+                                    </span>
+                                </li>
+                                {% endif %}
+                            </ul>
                         </li>
-                    </ul>
-                </li>
-                {% else %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'accounts:login' %}">
-                        <i class="fas fa-sign-in-alt"></i> Login
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="btn btn-primary btn-sm ms-2" href="{% url 'accounts:register' %}">
-                        <i class="fas fa-user-plus"></i> Sign Up
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
+                        {% endif %}
+                        
+                        {# VERIFIED EMPLOYER BADGE #}
+                        {% if user.user_type == 'EMPLOYER' and user.is_verified_employer %}
+                        <li class="nav-item">
+                            <span class="nav-link text-success">
+                                <i class="fas fa-check-circle"></i> Verified
+                            </span>
+                        </li>
+                        {% endif %}
+                        
+                        {# STAFF/ADMIN DASHBOARD LINKS #}
+                        {% if user.is_staff %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'dashboard:home' %}">
+                                        <i class="fas fa-chart-pie"></i> Overview
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'dashboard:ingestion' %}">
+                                        <i class="fas fa-upload"></i> Data Ingestion
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'dashboard:job_approval' %}">
+                                        <i class="fas fa-check-circle"></i> Job Approval
+                                        {% with pending_count=pending_approvals|default:0 %}
+                                        {% if pending_count > 0 %}
+                                        <span class="badge bg-warning ms-1">{{ pending_count }}</span>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'dashboard:reports' %}">
+                                        <i class="fas fa-flag"></i> Reports
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'dashboard:admin_create_job' %}">
+                                        <i class="fas fa-plus-circle text-success"></i> Quick Add Job
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'admin:index' %}" target="_blank">
+                                        <i class="fas fa-cog"></i> Django Admin
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav ms-auto">
+                    <!-- Dark/Light Mode Toggle -->
+                    <li class="nav-item me-2">
+                        <button class="btn btn-outline-secondary" id="themeToggle" title="Toggle dark/light mode">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </li>
+                    
+                    {% if user.is_authenticated %}
+                        <!-- Notifications -->
+                        <li class="nav-item dropdown me-2">
+                            <a class="nav-link position-relative" href="#" data-bs-toggle="dropdown" id="notificationDropdownBtn">
+                                <i class="fas fa-bell"></i>
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount" style="display: none;">
+                                    0
+                                </span>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end" style="min-width: 320px; max-height: 400px; overflow-y: auto;">
+                                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                                    <h6 class="mb-0 fw-bold">Notifications</h6>
+                                    <div>
+                                        <a href="{% url 'notifications:list' %}" class="text-decoration-none small me-2">View All</a>
+                                        <button class="btn btn-sm btn-link p-0" onclick="markAllNotificationsRead()" title="Mark all as read">
+                                            <i class="fas fa-check-double"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="notificationList">
+                                    <div class="dropdown-item text-muted text-center py-3">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Loading notifications...
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <div class="px-3 py-2">
+                                    <a href="{% url 'notifications:preferences' %}" class="text-decoration-none small">
+                                        <i class="fas fa-cog"></i> Notification Settings
+                                    </a>
+                                </div>
+                            </div>
+                        </li>
+                        
+                        <!-- User Menu -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+                                <i class="fas fa-user-circle"></i> 
+                                {{ user.first_name|default:user.email|truncatechars:20 }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li class="dropdown-header">
+                                    <small class="text-muted">Signed in as</small>
+                                    <strong>{{ user.email }}</strong>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                        <i class="fas fa-user"></i> My Profile
+                                        {% if user.profile_completion_percentage < 100 %}
+                                        <span class="badge bg-warning ms-1">{{ user.profile_completion_percentage }}%</span>
+                                        {% else %}
+                                        <span class="badge bg-success ms-1"><i class="fas fa-check"></i></span>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                
+                                {% if user.user_type == 'JOB_SEEKER' %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:saved' %}">
+                                        <i class="far fa-bookmark"></i> Saved Jobs
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'recommendations:recommended' %}">
+                                        <i class="fas fa-robot"></i> Recommendations
+                                    </a>
+                                </li>
+                                {% endif %}
+                                
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'notifications:preferences' %}">
+                                        <i class="fas fa-bell"></i> Notification Settings
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'notifications:job_alerts' %}">
+                                        <i class="fas fa-search"></i> Job Alerts
+                                    </a>
+                                </li>
+                                
+                                {% if user.user_type == 'EMPLOYER' or user.is_staff %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li class="dropdown-header">Employer Actions</li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:post' %}">
+                                        <i class="fas fa-plus-circle text-success"></i> Post a Job
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'jobs:my_jobs' %}">
+                                        <i class="fas fa-list"></i> My Posted Jobs
+                                    </a>
+                                </li>
+                                {% endif %}
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="{% url 'accounts:logout' %}" class="m-0">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item text-danger">
+                                            <i class="fas fa-sign-out-alt"></i> Logout
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'accounts:login' %}">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-primary btn-sm ms-2" href="{% url 'accounts:register' %}">
+                                <i class="fas fa-user-plus"></i> Sign Up
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    {# VERIFICATION REMINDER FOR UNVERIFIED EMPLOYERS #}
+    {% if user.is_authenticated and user.user_type == 'EMPLOYER' and not user.is_verified_employer %}
+    <div class="bg-warning bg-opacity-10 border-bottom border-warning">
+        <div class="container py-2">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-shield-alt text-warning me-2"></i>
+                    <span>Get verified to have your jobs auto-approved and display a trust badge!</span>
+                </div>
+                <a href="#" class="btn btn-warning btn-sm">Apply for Verification</a>
+            </div>
         </div>
     </div>
-</nav>
+    {% endif %}
+    
+    {# PROFILE COMPLETION REMINDER #}
+    {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' and user.profile_completion_percentage < 50 %}
+    <div class="bg-info bg-opacity-10 border-bottom border-info">
+        <div class="container py-2">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-user-edit text-info me-2"></i>
+                    <span>Complete your profile ({{ user.profile_completion_percentage }}% done) to get better job matches!</span>
+                </div>
+                <a href="{% url 'accounts:profile_setup' %}" class="btn btn-info btn-sm">Complete Profile</a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     
     <!-- Messages/Alerts -->
     {% if messages %}
     <div class="container mt-3">
         {% for message in messages %}
         <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {% if message.tags == 'success' %}
+            <i class="fas fa-check-circle me-2"></i>
+            {% elif message.tags == 'error' or message.tags == 'danger' %}
+            <i class="fas fa-exclamation-circle me-2"></i>
+            {% elif message.tags == 'warning' %}
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% elif message.tags == 'info' %}
+            <i class="fas fa-info-circle me-2"></i>
+            {% endif %}
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -225,22 +367,37 @@
                 <div class="col-md-4">
                     <h5>{{ SITE_NAME }}</h5>
                     <p class="text-muted">AI-powered job matching for Malawi and beyond.</p>
+                    <div class="mt-2">
+                        <span class="badge bg-success me-1"><i class="fas fa-check"></i> Verified Employers</span>
+                        <span class="badge bg-primary me-1"><i class="fas fa-robot"></i> AI Matching</span>
+                        <span class="badge bg-info"><i class="fas fa-lock"></i> Secure</span>
+                    </div>
                 </div>
                 <div class="col-md-4">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
                         <li><a href="{% url 'core:about' %}" class="text-decoration-none">About Us</a></li>
+                        <li><a href="{% url 'jobs:list' %}" class="text-decoration-none">Browse Jobs</a></li>
                         <li><a href="{% url 'core:privacy' %}" class="text-decoration-none">Privacy Policy</a></li>
                         <li><a href="{% url 'core:terms' %}" class="text-decoration-none">Terms of Service</a></li>
+                        {% if user.is_authenticated %}
+                        <li><a href="{% url 'notifications:preferences' %}" class="text-decoration-none">Notification Settings</a></li>
+                        {% endif %}
                     </ul>
                 </div>
                 <div class="col-md-4">
-                    <h5>Trust Indicators</h5>
-                    <p class="text-muted">
-                        <i class="fas fa-shield-alt text-success"></i> Verified Employers<br>
-                        <i class="fas fa-robot text-primary"></i> AI-Powered Matching<br>
-                        <i class="fas fa-lock text-info"></i> Secure Platform
-                    </p>
+                    <h5>Contact & Support</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope text-muted me-2"></i> support@malawijobs.com</li>
+                        <li><i class="fas fa-phone text-muted me-2"></i> +265 1 234 567</li>
+                        <li><i class="fas fa-map-marker-alt text-muted me-2"></i> Lilongwe, Malawi</li>
+                    </ul>
+                    <div class="mt-3">
+                        <a href="#" class="text-muted me-3"><i class="fab fa-facebook fa-lg"></i></a>
+                        <a href="#" class="text-muted me-3"><i class="fab fa-twitter fa-lg"></i></a>
+                        <a href="#" class="text-muted me-3"><i class="fab fa-linkedin fa-lg"></i></a>
+                        <a href="#" class="text-muted"><i class="fab fa-instagram fa-lg"></i></a>
+                    </div>
                 </div>
             </div>
             <hr>
@@ -277,6 +434,93 @@
         function updateThemeIcon(theme) {
             icon.className = theme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
         }
+        
+        // ============================================
+        // NOTIFICATIONS FUNCTIONALITY
+        // ============================================
+        function loadNotifications() {
+            fetch('/notifications/api/unread-count/')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('notificationCount');
+                    if (data.count > 0) {
+                        badge.textContent = data.count;
+                        badge.style.display = 'inline';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                });
+            
+            // Load recent notifications for dropdown
+            fetch('/notifications/api/recent/')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('notificationList');
+                    if (data.notifications && data.notifications.length > 0) {
+                        container.innerHTML = data.notifications.map(n => `
+                            <a href="${n.url}" class="dropdown-item ${n.is_read ? '' : 'bg-light'}">
+                                <div class="d-flex">
+                                    <div class="me-2">
+                                        <i class="fas fa-${n.icon} text-${n.color}"></i>
+                                    </div>
+                                    <div>
+                                        <small class="fw-bold">${n.title}</small><br>
+                                        <small class="text-muted">${n.message}</small><br>
+                                        <small class="text-muted">${n.time_ago}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        `).join('');
+                    } else {
+                        container.innerHTML = '<div class="dropdown-item text-muted text-center py-3">No new notifications</div>';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('notificationList').innerHTML = 
+                        '<div class="dropdown-item text-muted text-center py-3">No new notifications</div>';
+                });
+        }
+        
+        function markAllNotificationsRead() {
+            fetch('/notifications/mark-all-read/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                }
+            })
+            .then(() => {
+                document.getElementById('notificationCount').style.display = 'none';
+                loadNotifications();
+            });
+        }
+        
+        // Load saved jobs count for navigation badge
+        {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
+        function loadSavedCount() {
+            fetch('/jobs/saved/count/')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.querySelector('.saved-count-nav');
+                    if (badge && data.count > 0) {
+                        badge.textContent = data.count;
+                    }
+                })
+                .catch(() => {});
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSavedCount();
+        });
+        {% endif %}
+        
+        // Load notifications on page load
+        {% if user.is_authenticated %}
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotifications();
+            // Refresh notifications every 60 seconds
+            setInterval(loadNotifications, 60000);
+        });
+        {% endif %}
     </script>
     
     {% block extra_js %}{% endblock %}

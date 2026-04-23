@@ -1,0 +1,91 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Analytics - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="mb-4"><i class="fas fa-chart-line"></i> Analytics Dashboard</h1>
+    
+    <p class="text-muted">Date Range: {{ date_range }}</p>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Top Job Categories</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoriesChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">User Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="userDistributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Top Locations</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="locationsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Categories Chart
+new Chart(document.getElementById('categoriesChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for cat in top_categories %}'{{ cat.name }}',{% endfor %}],
+        datasets: [{
+            label: 'Number of Jobs',
+            data: [{% for cat in top_categories %}{{ cat.job_count }},{% endfor %}],
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+        }]
+    }
+});
+
+// User Distribution Chart
+new Chart(document.getElementById('userDistributionChart'), {
+    type: 'doughnut',
+    data: {
+        labels: [{% for item in user_distribution %}'{{ item.user_type }}',{% endfor %}],
+        datasets: [{
+            data: [{% for item in user_distribution %}{{ item.count }},{% endfor %}],
+            backgroundColor: ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0']
+        }]
+    }
+});
+
+// Locations Chart
+new Chart(document.getElementById('locationsChart'), {
+    type: 'bar',
+    data: {
+        labels: [{% for loc in top_locations %}'{{ loc.city }}',{% endfor %}],
+        datasets: [{
+            label: 'Jobs Posted',
+            data: [{% for loc in top_locations %}{{ loc.count }},{% endfor %}],
+            backgroundColor: 'rgba(255, 159, 64, 0.5)'
+        }]
+    }
+});
+</script>
+{% endblock %}

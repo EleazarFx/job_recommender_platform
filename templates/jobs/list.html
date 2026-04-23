@@ -95,6 +95,83 @@
                     </form>
                 </div>
             </div>
+            
+            {# ROLE-BASED SIDEBAR SECTIONS #}
+            
+            {# Job Seeker: Saved Jobs Quick Access #}
+            {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="far fa-bookmark"></i> Quick Access
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'jobs:saved' %}" class="list-group-item list-group-item-action">
+                        <i class="far fa-bookmark text-primary"></i> Saved Jobs
+                        <span class="float-end badge bg-primary saved-count">0</span>
+                    </a>
+                    <a href="{% url 'recommendations:recommended' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-robot text-success"></i> Recommended for You
+                    </a>
+                    <a href="{% url 'recommendations:skill_gaps' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chart-line text-info"></i> Skill Insights
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            {# Employer: Quick Stats #}
+            {% if user.is_authenticated and user.user_type == 'EMPLOYER' %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-briefcase"></i> Employer Tools
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'jobs:post' %}" class="list-group-item list-group-item-action text-success">
+                        <i class="fas fa-plus-circle"></i> Post a New Job
+                    </a>
+                    <a href="{% url 'jobs:my_jobs' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-list"></i> My Posted Jobs
+                    </a>
+                    {% if not user.is_verified_employer %}
+                    <div class="list-group-item bg-light">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Get verified for auto-approval and trust badge!
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {# Staff/Admin: Quick Actions #}
+            {% if user.is_staff %}
+            <div class="card mt-3">
+                <div class="card-header bg-warning bg-opacity-25">
+                    <h5 class="mb-0">
+                        <i class="fas fa-crown"></i> Admin Tools
+                    </h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'dashboard:home' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                    <a href="{% url 'dashboard:job_approval' %}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-check-circle"></i> Pending Approvals
+                        {% if pending_approvals %}
+                        <span class="float-end badge bg-warning">{{ pending_approvals }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{% url 'admin:index' %}" class="list-group-item list-group-item-action" target="_blank">
+                        <i class="fas fa-cog"></i> Django Admin
+                    </a>
+                </div>
+            </div>
+            {% endif %}
         </div>
         
         <!-- Job Listings -->
@@ -106,17 +183,55 @@
                     <p class="text-muted mb-0">{{ total_results }} jobs found</p>
                 </div>
                 <div>
+                    {# ROLE-BASED ACTION BUTTONS #}
+                    
+                    {# Staff: Export CSV #}
                     {% if user.is_staff %}
                     <a href="{% url 'jobs:export_csv' %}?{{ request.GET.urlencode }}" 
-                       class="btn btn-outline-success btn-sm">
+                       class="btn btn-outline-success btn-sm me-2">
                         <i class="fas fa-download"></i> Export CSV
                     </a>
                     {% endif %}
+                    
+                    {# Employer/Admin: Post a Job #}
+                    {% if user.is_authenticated and user.user_type in 'EMPLOYER,ADMIN' or user.is_staff %}
                     <a href="{% url 'jobs:post' %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i> Post a Job
                     </a>
+                    {% endif %}
+                    
+                    {# Job Seeker: Create Alert #}
+                    {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
+                    <a href="{% url 'notifications:create_alert' %}?{{ request.GET.urlencode }}" 
+                       class="btn btn-outline-info btn-sm ms-2">
+                        <i class="fas fa-bell"></i> Create Job Alert
+                    </a>
+                    {% endif %}
                 </div>
             </div>
+            
+            {# VERIFICATION STATUS BANNER FOR EMPLOYERS #}
+            {% if user.is_authenticated and user.user_type == 'EMPLOYER' and not user.is_verified_employer %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Your account is not verified.</strong> 
+                Verified employers get auto-approved job postings and a trust badge.
+                <a href="#" class="alert-link">Apply for verification</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+            
+            {# JOB SEEKER: PROFILE COMPLETION REMINDER #}
+            {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' and user.profile_completion_percentage < 50 %}
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <i class="fas fa-user-edit"></i>
+                <strong>Complete your profile!</strong> 
+                You're only {{ user.profile_completion_percentage }}% done. 
+                Complete it to get better job matches!
+                <a href="{% url 'accounts:profile_setup' %}" class="alert-link">Complete Now</a>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
             
             <!-- Active Filters -->
             {% if active_filters %}
@@ -144,6 +259,11 @@
                                     </a>
                                     {% if job.is_fresh %}
                                     <span class="badge bg-success ms-2">NEW</span>
+                                    {% endif %}
+                                    
+                                    {# Owner indicator #}
+                                    {% if user.is_authenticated and job.posted_by == user %}
+                                    <span class="badge bg-info ms-2">Your Job</span>
                                     {% endif %}
                                 </h5>
                                 
@@ -181,8 +301,17 @@
                                 {% endif %}
                                 {% endwith %}
                                 
-                                <!-- Match Score (if logged in) -->
-                                {% if user.is_authenticated and job.user_match_score %}
+                                {# Application count (visible to owner and staff) #}
+                                {% if user.is_authenticated and job.posted_by == user or user.is_staff %}
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-users"></i> {{ job.application_count }} application{{ job.application_count|pluralize }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Match Score (for job seekers only) -->
+                                {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' and job.user_match_score %}
                                 <div class="mt-2">
                                     <div class="d-flex align-items-center">
                                         <div class="progress flex-grow-1 me-2" style="height: 6px;">
@@ -201,16 +330,49 @@
                                         View Details
                                     </a>
                                     
-                                    {% if user.is_authenticated %}
+                                    {# ROLE-BASED ACTION BUTTONS #}
+                                    
+                                    {# Job Seeker: Save button #}
+                                    {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
                                     <button class="btn btn-outline-secondary btn-sm save-job-btn" 
                                             data-job-id="{{ job.pk }}"
                                             data-saved="{% if job.id in saved_job_ids %}true{% else %}false{% endif %}">
+                                        {% if job.id in saved_job_ids %}
+                                        <i class="fas fa-bookmark"></i> Saved
+                                        {% else %}
                                         <i class="far fa-bookmark"></i> Save
+                                        {% endif %}
                                     </button>
+                                    {% endif %}
+                                    
+                                    {# Employer (Owner): Manage button #}
+                                    {% if user.is_authenticated and job.posted_by == user %}
+                                    <a href="{% url 'jobs:my_jobs' %}" class="btn btn-outline-success btn-sm mt-1">
+                                        <i class="fas fa-cog"></i> Manage
+                                    </a>
+                                    {% endif %}
+                                    
+                                    {# Staff: Quick admin link #}
+                                    {% if user.is_staff %}
+                                    <a href="{% url 'admin:jobs_jobvacancy_change' job.pk %}" 
+                                       class="btn btn-outline-warning btn-sm mt-1" target="_blank">
+                                        <i class="fas fa-edit"></i> Admin Edit
+                                    </a>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
+                        
+                        {# PENDING APPROVAL WARNING (for owner) #}
+                        {% if user.is_authenticated and job.posted_by == user and not job.is_approved %}
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-clock"></i> Pending Admin Approval
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -263,11 +425,20 @@
 
 {% block extra_js %}
 <script>
-// Save job functionality
+// ============================================
+// SAVE JOB FUNCTIONALITY (Job Seekers Only)
+// ============================================
 document.querySelectorAll('.save-job-btn').forEach(btn => {
+    // Set initial state
+    const isSaved = btn.dataset.saved === 'true';
+    if (isSaved) {
+        btn.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-outline-secondary');
+    }
+    
     btn.addEventListener('click', function() {
         const jobId = this.dataset.jobId;
-        const icon = this.querySelector('i');
         
         fetch(`/jobs/${jobId}/save/`, {
             method: 'POST',
@@ -278,15 +449,23 @@ document.querySelectorAll('.save-job-btn').forEach(btn => {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.is_saved) {
-                icon.className = 'fas fa-bookmark';
-                this.classList.add('btn-primary');
-                this.classList.remove('btn-outline-secondary');
+            if (data.success) {
+                if (data.is_saved) {
+                    this.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+                    this.classList.add('btn-primary');
+                    this.classList.remove('btn-outline-secondary');
+                } else {
+                    this.innerHTML = '<i class="far fa-bookmark"></i> Save';
+                    this.classList.remove('btn-primary');
+                    this.classList.add('btn-outline-secondary');
+                }
             } else {
-                icon.className = 'far fa-bookmark';
-                this.classList.remove('btn-primary');
-                this.classList.add('btn-outline-secondary');
+                alert(data.message || 'Error saving job');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
         });
     });
 });
@@ -297,5 +476,20 @@ document.querySelectorAll('#searchForm select').forEach(select => {
         document.getElementById('searchForm').submit();
     });
 });
+
+// Update saved jobs count in sidebar (if job seeker)
+{% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
+fetch('{% url "jobs:saved" %}?count_only=1', {
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+})
+.then(response => response.json())
+.then(data => {
+    const countBadge = document.querySelector('.saved-count');
+    if (countBadge) {
+        countBadge.textContent = data.count || 0;
+    }
+})
+.catch(() => {});
+{% endif %}
 </script>
 {% endblock %}

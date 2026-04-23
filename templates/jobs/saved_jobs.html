@@ -1,32 +1,531 @@
 {% extends 'base/base.html' %}
+{% load static %}
 
 {% block title %}Saved Jobs - {{ block.super }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4"><i class="far fa-bookmark"></i> Saved Jobs</h1>
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">
+                <i class="far fa-bookmark text-primary"></i> Saved Jobs
+            </h1>
+            <p class="text-muted mb-0">Jobs you've bookmarked for later</p>
+        </div>
+        <div>
+            <a href="{% url 'jobs:list' %}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Browse More Jobs
+            </a>
+        </div>
+    </div>
     
     {% if saved_jobs %}
-        <div class="row">
-            {% for saved in saved_jobs %}
-            <div class="col-md-6 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5>
-                            <a href="{% url 'jobs:detail' saved.job.pk %}">{{ saved.job.title }}</a>
-                        </h5>
-                        <p>{{ saved.job.company_name }}</p>
-                        <small class="text-muted">Saved {{ saved.saved_at|timesince }} ago</small>
+        <!-- Stats Summary -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 mb-0">Total Saved</h6>
+                                <h3 class="mb-0">{{ total_saved }}</h3>
+                            </div>
+                            <i class="fas fa-bookmark fa-2x opacity-50"></i>
+                        </div>
                     </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 mb-0">Still Active</h6>
+                                <h3 class="mb-0" id="activeCount">-</h3>
+                            </div>
+                            <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-dark-50 mb-0">Expiring Soon</h6>
+                                <h3 class="mb-0" id="expiringCount">-</h3>
+                            </div>
+                            <i class="fas fa-clock fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-white-50 mb-0">Applied</h6>
+                                <h3 class="mb-0" id="appliedCount">-</h3>
+                            </div>
+                            <i class="fas fa-paper-plane fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Filters and Sort -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary active filter-btn" data-filter="all">
+                        All Jobs
+                    </button>
+                    <button type="button" class="btn btn-outline-primary filter-btn" data-filter="active">
+                        Active Only
+                    </button>
+                    <button type="button" class="btn btn-outline-primary filter-btn" data-filter="expiring">
+                        Expiring Soon
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <select class="form-select w-auto float-end" id="sortSelect" style="width: 200px;">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="expiry">Expiring Soon</option>
+                    <option value="company">Company Name</option>
+                    <option value="title">Job Title</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Saved Jobs Grid -->
+        <div class="row" id="savedJobsContainer">
+            {% for saved in saved_jobs %}
+            <div class="col-md-6 mb-3 saved-job-item" 
+                 data-active="{{ saved.job.is_approved|yesno:'true,false' }}"
+                 data-expiring="{% if saved.job.expiry_date|timeuntil:7 %}true{% else %}false{% endif %}"
+                 data-applied="false"
+                 data-date="{{ saved.saved_at|date:'Y-m-d H:i:s' }}"
+                 data-expiry="{{ saved.job.expiry_date|date:'Y-m-d' }}"
+                 data-company="{{ saved.job.company_name|lower }}"
+                 data-title="{{ saved.job.title|lower }}">
+                <div class="card h-100 {% if not saved.job.is_approved %}border-warning{% elif saved.job.is_expired %}border-secondary{% endif %}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">
+                                    <a href="{% url 'jobs:detail' saved.job.pk %}" class="text-decoration-none">
+                                        {{ saved.job.title }}
+                                    </a>
+                                </h5>
+                                <h6 class="card-subtitle mb-2 text-muted">
+                                    {{ saved.job.company_name }}
+                                    {% if saved.job.is_verified_company %}
+                                    <i class="fas fa-check-circle text-success" title="Verified Employer"></i>
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger remove-save-btn" 
+                                    data-job-id="{{ saved.job.pk }}"
+                                    title="Remove from saved">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-map-marker-alt"></i> {{ saved.job.location_display|default:"Not specified" }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-clock"></i> {{ saved.job.get_job_type_display }}
+                            </span>
+                        </div>
+                        
+                        <!-- Skills Preview -->
+                        {% with skills=saved.job.get_skills_list|slice:":3" %}
+                        {% if skills %}
+                        <div class="mb-2">
+                            {% for skill in skills %}
+                            <span class="skill-tag">{{ skill }}</span>
+                            {% endfor %}
+                            {% if saved.job.get_skills_list|length > 3 %}
+                            <span class="skill-tag">+{{ saved.job.get_skills_list|length|add:"-3" }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endwith %}
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">
+                                <i class="far fa-clock"></i> Saved {{ saved.saved_at|timesince }} ago
+                            </small>
+                            
+                            <div>
+                                {% if saved.job.is_expired %}
+                                <span class="badge bg-secondary">Expired</span>
+                                {% elif not saved.job.is_approved %}
+                                <span class="badge bg-warning text-dark">Pending</span>
+                                {% elif saved.job.expiry_date|timeuntil:7 %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-hourglass-half"></i> Expires soon
+                                </span>
+                                {% else %}
+                                <span class="badge bg-success">Active</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Expiry Progress Bar -->
+                        {% if saved.job.is_approved and not saved.job.is_expired %}
+                        <div class="progress mt-2" style="height: 4px;">
+                            {% with days_left=saved.job.expiry_date|timeuntil %}
+                            <div class="progress-bar bg-success" 
+                                 style="width: {% widthratio saved.job.expiry_date|timeuntil 30 100 %}%"></div>
+                            {% endwith %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2 mt-3">
+                            <a href="{% url 'jobs:detail' saved.job.pk %}" class="btn btn-primary btn-sm flex-grow-1">
+                                <i class="fas fa-eye"></i> View Job
+                            </a>
+                            
+                            {% if not saved.job.is_expired and saved.job.is_approved %}
+                            <button class="btn btn-success btn-sm apply-btn" data-job-id="{{ saved.job.pk }}">
+                                <i class="fas fa-paper-plane"></i> Apply
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Match Score (if available) -->
+                    {% if saved.job.user_match_score %}
+                    <div class="card-footer bg-light">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-robot text-primary me-2"></i>
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary" 
+                                         style="width: {{ saved.job.user_match_score }}%"></div>
+                                </div>
+                            </div>
+                            <span class="ms-2 fw-bold text-primary">
+                                {{ saved.job.user_match_score|floatformat:0 }}%
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
         </div>
+        
+        <!-- Pagination -->
+        {% if saved_jobs.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if saved_jobs.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ saved_jobs.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in saved_jobs.paginator.page_range %}
+                <li class="page-item {% if saved_jobs.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if saved_jobs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ saved_jobs.next_page_number }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
     {% else %}
-        <div class="alert alert-info">
-            <p>You haven't saved any jobs yet.</p>
-            <a href="{% url 'jobs:list' %}" class="btn btn-primary">Browse Jobs</a>
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <i class="far fa-bookmark fa-5x text-muted mb-4"></i>
+            <h2>No saved jobs yet</h2>
+            <p class="text-muted mb-4">Save jobs you're interested in to apply later!</p>
+            
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5><i class="fas fa-lightbulb text-warning"></i> Tips for finding jobs</h5>
+                            <ul class="text-start">
+                                <li>Use filters to narrow down your search</li>
+                                <li>Complete your profile for better matches</li>
+                                <li>Set up job alerts for new opportunities</li>
+                                <li>Check the "Recommended" section</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{% url 'jobs:list' %}" class="btn btn-primary btn-lg me-2">
+                    <i class="fas fa-search"></i> Browse Jobs
+                </a>
+                <a href="{% url 'recommendations:recommended' %}" class="btn btn-success btn-lg">
+                    <i class="fas fa-robot"></i> View Recommendations
+                </a>
+            </div>
         </div>
     {% endif %}
 </div>
+
+<!-- Bulk Actions Bar (Fixed Bottom) -->
+<div class="fixed-bottom bg-white border-top py-3 d-none" id="bulkActionsBar">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <span id="selectedCount">0</span> jobs selected
+                <button class="btn btn-link btn-sm ms-2" onclick="clearSelection()">
+                    Clear selection
+                </button>
+            </div>
+            <div>
+                <button class="btn btn-outline-danger btn-sm" onclick="removeSelected()">
+                    <i class="fas fa-trash"></i> Remove Selected
+                </button>
+                <button class="btn btn-outline-primary btn-sm ms-2" onclick="applyToSelected()">
+                    <i class="fas fa-paper-plane"></i> Apply to Selected
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================
+// STATISTICS CALCULATION
+// ============================================
+function updateStats() {
+    const items = document.querySelectorAll('.saved-job-item');
+    let activeCount = 0;
+    let expiringCount = 0;
+    let appliedCount = 0;
+    
+    items.forEach(item => {
+        if (item.dataset.active === 'true') activeCount++;
+        if (item.dataset.expiring === 'true') expiringCount++;
+        if (item.dataset.applied === 'true') appliedCount++;
+    });
+    
+    document.getElementById('activeCount').textContent = activeCount;
+    document.getElementById('expiringCount').textContent = expiringCount;
+    document.getElementById('appliedCount').textContent = appliedCount;
+}
+
+// ============================================
+// FILTER FUNCTIONALITY
+// ============================================
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Update active state
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        
+        const filter = this.dataset.filter;
+        const items = document.querySelectorAll('.saved-job-item');
+        
+        items.forEach(item => {
+            const card = item.closest('.col-md-6');
+            if (filter === 'all') {
+                card.style.display = '';
+            } else if (filter === 'active') {
+                card.style.display = item.dataset.active === 'true' ? '' : 'none';
+            } else if (filter === 'expiring') {
+                card.style.display = item.dataset.expiring === 'true' ? '' : 'none';
+            }
+        });
+    });
+});
+
+// ============================================
+// SORT FUNCTIONALITY
+// ============================================
+document.getElementById('sortSelect').addEventListener('change', function() {
+    const sortBy = this.value;
+    const container = document.getElementById('savedJobsContainer');
+    const items = Array.from(document.querySelectorAll('.saved-job-item'));
+    
+    items.sort((a, b) => {
+        switch(sortBy) {
+            case 'newest':
+                return b.dataset.date.localeCompare(a.dataset.date);
+            case 'oldest':
+                return a.dataset.date.localeCompare(b.dataset.date);
+            case 'expiry':
+                return a.dataset.expiry.localeCompare(b.dataset.expiry);
+            case 'company':
+                return a.dataset.company.localeCompare(b.dataset.company);
+            case 'title':
+                return a.dataset.title.localeCompare(b.dataset.title);
+            default:
+                return 0;
+        }
+    });
+    
+    // Reorder DOM
+    items.forEach(item => {
+        container.appendChild(item.closest('.col-md-6'));
+    });
+});
+
+// ============================================
+// REMOVE SAVED JOB
+// ============================================
+document.querySelectorAll('.remove-save-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const jobId = this.dataset.jobId;
+        const card = this.closest('.col-md-6');
+        
+        if (!confirm('Remove this job from your saved list?')) {
+            return;
+        }
+        
+        fetch(`/jobs/${jobId}/save/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && !data.is_saved) {
+                card.remove();
+                updateStats();
+                
+                // Check if no jobs left
+                if (document.querySelectorAll('.saved-job-item').length === 0) {
+                    location.reload();
+                }
+            }
+        });
+    });
+});
+
+// ============================================
+// APPLY TO JOB
+// ============================================
+document.querySelectorAll('.apply-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        
+        fetch(`/jobs/${jobId}/apply/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(() => {
+            const item = this.closest('.saved-job-item');
+            item.dataset.applied = 'true';
+            updateStats();
+            
+            alert('Application submitted!');
+        });
+    });
+});
+
+// ============================================
+// BULK SELECTION (Optional Feature)
+// ============================================
+let selectedJobs = new Set();
+
+function toggleSelection(jobId, checked) {
+    if (checked) {
+        selectedJobs.add(jobId);
+    } else {
+        selectedJobs.delete(jobId);
+    }
+    
+    const bar = document.getElementById('bulkActionsBar');
+    const countSpan = document.getElementById('selectedCount');
+    
+    if (selectedJobs.size > 0) {
+        bar.classList.remove('d-none');
+        countSpan.textContent = selectedJobs.size;
+    } else {
+        bar.classList.add('d-none');
+    }
+}
+
+function clearSelection() {
+    selectedJobs.clear();
+    document.querySelectorAll('.select-job-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('bulkActionsBar').classList.add('d-none');
+}
+
+function removeSelected() {
+    if (selectedJobs.size === 0) return;
+    
+    if (!confirm(`Remove ${selectedJobs.size} job(s) from saved?`)) {
+        return;
+    }
+    
+    const promises = Array.from(selectedJobs).map(jobId => 
+        fetch(`/jobs/${jobId}/save/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+    );
+    
+    Promise.all(promises).then(() => {
+        location.reload();
+    });
+}
+
+// Initialize stats on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateStats();
+});
+</script>
+
+<style>
+.skill-tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    margin: 0.1rem;
+    background-color: #e9ecef;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    color: #495057;
+}
+
+.saved-job-item {
+    transition: opacity 0.3s ease;
+}
+
+.saved-job-item.removing {
+    opacity: 0;
+}
+
+#bulkActionsBar {
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+</style>
 {% endblock %}
