@@ -122,8 +122,7 @@ class User(AbstractUser):
 
 class Profile(models.Model):
     """
-    Extended profile for job seekers.
-    Separated from User model for performance.
+    Extended profile for both job seekers and employers.
     """
     EXPERIENCE_LEVELS = (
         ('ENTRY', 'Entry Level (0-2 years)'),
@@ -142,6 +141,26 @@ class Profile(models.Model):
         ('HYBRID', 'Hybrid'),
     )
     
+    COMPANY_SIZE_CHOICES = (
+        ('1-10', '1-10 employees'),
+        ('11-50', '11-50 employees'),
+        ('51-200', '51-200 employees'),
+        ('201-500', '201-500 employees'),
+        ('500+', '500+ employees'),
+    )
+    
+    INDUSTRY_CHOICES = (
+        ('TECH', 'Technology'),
+        ('HEALTH', 'Healthcare'),
+        ('EDUCATION', 'Education'),
+        ('FINANCE', 'Finance'),
+        ('AGRICULTURE', 'Agriculture'),
+        ('HOSPITALITY', 'Hospitality'),
+        ('RETAIL', 'Retail'),
+        ('MANUFACTURING', 'Manufacturing'),
+        ('OTHER', 'Other'),
+    )
+    
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -155,7 +174,9 @@ class Profile(models.Model):
         null=True
     )
     
-    # Job Seeker Information
+    # ============================================
+    # JOB SEEKER FIELDS
+    # ============================================
     skills = models.TextField(
         blank=True,
         help_text="Comma-separated skills: Python, Django, Project Management"
@@ -200,6 +221,43 @@ class Profile(models.Model):
         blank=True
     )
     
+    # ============================================
+    # EMPLOYER FIELDS (NEW)
+    # ============================================
+    company_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Your company name"
+    )
+    
+    company_website = models.URLField(
+        blank=True,
+        help_text="https://www.example.com"
+    )
+    
+    company_description = models.TextField(
+        blank=True,
+        help_text="Tell potential applicants about your company"
+    )
+    
+    company_location = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="e.g., Lilongwe, Malawi"
+    )
+    
+    company_size = models.CharField(
+        max_length=20,
+        choices=COMPANY_SIZE_CHOICES,
+        blank=True
+    )
+    
+    industry = models.CharField(
+        max_length=20,
+        choices=INDUSTRY_CHOICES,
+        blank=True
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -224,7 +282,7 @@ class Profile(models.Model):
             return []
         return [loc.strip() for loc in self.preferred_locations.split(',') if loc.strip()]
 
-
+        
 class PasswordResetOTP(models.Model):
     """
     One-Time Password for password reset.

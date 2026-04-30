@@ -105,16 +105,7 @@
                                     <small class="text-muted">Last Active</small>
                                     <p class="mb-0">{{ user.last_activity|date:"M d, Y" }}</p>
                                 </div>
-                                <div class="col-sm-4">
-                                    <small class="text-muted">Email Verified</small>
-                                    <p class="mb-0">
-                                        {% if user.email_verified %}
-                                        <i class="fas fa-check-circle text-success"></i> Yes
-                                        {% else %}
-                                        <i class="fas fa-times-circle text-warning"></i> Pending
-                                        {% endif %}
-                                    </p>
-                                </div>
+                              
                             </div>
                         </div>
                     </div>

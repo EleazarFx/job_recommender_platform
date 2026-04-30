@@ -25,7 +25,6 @@ from .matching_engine import JobMatchingEngine, SkillGapAnalyzer, LocationDemand
 # JOB SEEKER ONLY VIEWS
 # ============================================
 
-@login_required
 @job_seeker_required
 def recommended_jobs(request):
     """
@@ -120,7 +119,6 @@ def recommended_jobs(request):
     return render(request, 'recommendations/recommended.html', context)
 
 
-@login_required
 @job_seeker_required
 def skill_gap_insights(request):
     """
@@ -260,7 +258,6 @@ def track_recommendation_action(request):
         return JsonResponse({'success': False, 'error': str(e)})
 
 
-@login_required
 @job_seeker_required
 def refresh_recommendations(request):
     """

@@ -40,30 +40,51 @@ class RegisterView(CreateView):
     
     def form_valid(self, form):
         """Create user, log them in, redirect to profile setup."""
+        print("\n=== REGISTRATION FORM IS VALID ===")
+        print(f"Email: {form.cleaned_data.get('email')}")
+        print(f"User Type: {form.cleaned_data.get('user_type')}")
+        
         if form.cleaned_data.get('user_type') == 'ADMIN':
             messages.error(self.request, 'Administrator accounts cannot be created through public registration.')
             return self.form_invalid(form)
         
-        with transaction.atomic():
-            self.object = form.save()
+        try:
+            with transaction.atomic():
+                self.object = form.save()
+                
+                # Set proper permissions
+                self.object.is_staff = False
+                self.object.is_superuser = False
+                self.object.is_active = True
+                self.object.save(update_fields=['is_staff', 'is_superuser', 'is_active'])
+                
+                # Create profile
+                profile, created = Profile.objects.get_or_create(user=self.object)
+                print(f"Profile created: {created}, Profile ID: {profile.id}")
+                
+                # Log user in
+                login(self.request, self.object)
+                print(f"User logged in: {self.object.email}")
+                
+                messages.success(self.request, f'Welcome {self.object.first_name}! Please complete your profile.')
             
-            # Set proper permissions
-            self.object.is_staff = False
-            self.object.is_superuser = False
-            self.object.is_active = True
-            self.object.save(update_fields=['is_staff', 'is_superuser', 'is_active'])
+            print("=== REDIRECTING TO PROFILE SETUP ===\n")
+            return redirect(self.success_url)
             
-            # Create profile
-            Profile.objects.get_or_create(user=self.object)
-            
-            # Log user in
-            login(self.request, self.object)
-            
-            messages.success(self.request, f'Welcome {self.object.first_name}! Please complete your profile.')
-        
-        return redirect(self.success_url)
+        except Exception as e:
+            print(f"\n=== REGISTRATION ERROR ===\n{str(e)}\n")
+            messages.error(self.request, f'An error occurred: {str(e)}')
+            return self.form_invalid(form)
     
     def form_invalid(self, form):
+        """Handle invalid form with debug output."""
+        print("\n=== REGISTRATION FORM IS INVALID ===")
+        print(f"Errors: {form.errors}")
+        print(f"Non-field errors: {form.non_field_errors()}")
+        
+        for field, errors in form.errors.items():
+            print(f"  {field}: {errors}")
+        
         messages.error(self.request, 'Please correct the errors below.')
         return super().form_invalid(form)
 
@@ -110,7 +131,21 @@ class CustomLoginView(LoginView):
             messages.error(self.request, 'Too many failed attempts. Please try again in 15 minutes.')
         else:
             messages.error(self.request, 'Invalid email or password. Please try again.')
+
+
+        #added
+        """Handle invalid form with detailed error messages."""
+        # Print errors to console for debugging
+        print("Form errors:", form.errors)
         
+        # Add a general error message
+        messages.error(
+            self.request,
+            'Please correct the errors below.'
+        )
+        
+
+
         return super().form_invalid(form)
     
     @staticmethod
@@ -358,8 +393,13 @@ def profile_stats_api(request):
 def update_profile_ajax(request):
     """AJAX endpoint for updating profile fields."""
     import json
+    from json import JSONDecodeError
     
-    data = json.loads(request.body)
+    try:
+        data = json.loads(request.body or b'{}')
+    except JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON payload.'}, status=400)
+    
     field = data.get('field')
     value = data.get('value')
     

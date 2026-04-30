@@ -1,0 +1,48 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Digest Details - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3"><i class="fas fa-envelope-open-text"></i> Digest Details</h1>
+                    <p class="text-muted mb-0">
+                        Digest generated on {{ digest.created_at|date:"M d, Y H:i" }}
+                    </p>
+                </div>
+                <a href="{% url 'notifications:list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Notifications
+                </a>
+            </div>
+
+            {% if notifications %}
+            <div class="list-group">
+                {% for notification in notifications %}
+                <div class="list-group-item list-group-item-action mb-2 {% if not notification.is_read %}list-group-item-light{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="mb-1">{{ notification.title }}</h5>
+                            <p class="mb-2">{{ notification.message|linebreaksbr }}</p>
+                            <small class="text-muted">Received {{ notification.created_at|timesince }} ago</small>
+                        </div>
+                        {% if notification.job %}
+                        <a href="{% url 'jobs:detail' notification.job.pk %}" class="btn btn-sm btn-primary mt-2">
+                            View Job
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-secondary">
+                <p class="mb-0">This digest contains no notifications yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

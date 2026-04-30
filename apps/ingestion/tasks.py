@@ -278,7 +278,7 @@ def parse_api_item(item, field_mapping):
     """Parse API response item based on field mapping."""
     job_data = {}
     
-    for target_field, source_path in field_mapping.items():
+    for source_path, target_field in field_mapping.items():
         # Handle nested paths like "company.name"
         value = item
         for key in source_path.split('.'):

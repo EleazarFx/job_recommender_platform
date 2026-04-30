@@ -2,7 +2,10 @@
 Custom decorators for role-based access control.
 """
 from django.core.exceptions import PermissionDenied
-from django.contrib.auth.decorators import user_passes_test, login_required
+from django.http import JsonResponse
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.shortcuts import redirect
 from django.contrib import messages
 from functools import wraps
@@ -13,11 +16,18 @@ def job_seeker_required(view_func):
     Restrict access to job seekers only.
     """
     @wraps(view_func)
-    @login_required
     def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': 'Authentication required.'}, status=401)
+            return redirect_to_login(request.get_full_path(), login_url=reverse('accounts:login'))
+
         if request.user.user_type == 'JOB_SEEKER':
             return view_func(request, *args, **kwargs)
-        
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': 'Job seeker access required.'}, status=403)
+
         messages.error(request, "This area is for job seekers only.")
         return redirect('core:home')
     return wrapper
@@ -28,11 +38,18 @@ def employer_required(view_func):
     Restrict access to employers (verified or not).
     """
     @wraps(view_func)
-    @login_required
     def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': 'Authentication required.'}, status=401)
+            return redirect_to_login(request.get_full_path(), login_url=reverse('accounts:login'))
+
         if request.user.user_type in ['EMPLOYER', 'ADMIN']:
             return view_func(request, *args, **kwargs)
-        
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': 'Employer access required.'}, status=403)
+
         messages.error(request, "This area is for employers only.")
         return redirect('core:home')
     return wrapper

@@ -7,15 +7,24 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <!-- Filters Sidebar -->
-        <div class="col-lg-3 mb-4">
-            <div class="card sticky-top" style="top: 20px;">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-filter"></i> Filters
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <form method="get" id="searchForm">
+        <div class="col-12 col-lg-3 mb-4">
+            <div class="d-lg-none mb-3">
+                <button class="btn btn-outline-primary w-100" type="button" id="filterToggleButton"
+                    data-bs-toggle="collapse" data-bs-target="#jobFiltersCollapse" aria-expanded="false"
+                    aria-controls="jobFiltersCollapse">
+                    <i class="fas fa-filter"></i> Filters
+                </button>
+            </div>
+            <div class="collapse show d-lg-block" id="jobFiltersCollapse">
+                <div class="card filters-sidebar sticky-top" style="top: 20px;">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-filter"></i> Filters
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="get" id="searchForm">
+                            {% csrf_token %}
                         <!-- Keyword Search -->
                         <div class="mb-3">
                             <label class="form-label">Search</label>
@@ -95,6 +104,7 @@
                     </form>
                 </div>
             </div>
+        </div>
             
             {# ROLE-BASED SIDEBAR SECTIONS #}
             
@@ -175,7 +185,8 @@
         </div>
         
         <!-- Job Listings -->
-        <div class="col-lg-9">
+        <div class="col-12 col-lg-9">
+            <div id="ajaxAlertContainer"></div>
             <!-- Search Summary -->
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
@@ -194,7 +205,7 @@
                     {% endif %}
                     
                     {# Employer/Admin: Post a Job #}
-                    {% if user.is_authenticated and user.user_type in 'EMPLOYER,ADMIN' or user.is_staff %}
+                    {% if user.is_staff or user.is_authenticated and user.user_type == 'EMPLOYER' or user.is_authenticated and user.user_type == 'ADMIN' %}
                     <a href="{% url 'jobs:post' %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i> Post a Job
                     </a>
@@ -425,9 +436,33 @@
 
 {% block extra_js %}
 <script>
+(function() {
+    const filterCollapse = document.getElementById('jobFiltersCollapse');
+
+    function updateFilterPanel() {
+        if (!filterCollapse) return;
+        if (window.innerWidth >= 992) {
+            filterCollapse.classList.add('show');
+        } else {
+            filterCollapse.classList.remove('show');
+        }
+    }
+
+    window.addEventListener('resize', updateFilterPanel);
+    document.addEventListener('DOMContentLoaded', updateFilterPanel);
+})();
+</script>
+<script>
 // ============================================
 // SAVE JOB FUNCTIONALITY (Job Seekers Only)
 // ============================================
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
 document.querySelectorAll('.save-job-btn').forEach(btn => {
     // Set initial state
     const isSaved = btn.dataset.saved === 'true';
@@ -439,15 +474,34 @@ document.querySelectorAll('.save-job-btn').forEach(btn => {
     
     btn.addEventListener('click', function() {
         const jobId = this.dataset.jobId;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+        if (!csrfToken) {
+            alert('CSRF token not found. Please refresh the page and try again.');
+            return;
+        }
         
         fetch(`/jobs/${jobId}/save/`, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                return response.text().then(text => {
+                    throw new Error('Expected JSON response but received HTML');
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 if (data.is_saved) {
@@ -459,16 +513,45 @@ document.querySelectorAll('.save-job-btn').forEach(btn => {
                     this.classList.remove('btn-primary');
                     this.classList.add('btn-outline-secondary');
                 }
+                showAjaxAlert(data.message || 'Job updated successfully.', 'success');
             } else {
-                alert(data.message || 'Error saving job');
+                showAjaxAlert(data.message || 'Error saving job.', 'danger');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            showAjaxAlert(error.message || 'An error occurred while saving the job. Please try again.', 'danger');
         });
     });
 });
+
+function showAjaxAlert(message, type = 'danger') {
+    const container = document.getElementById('ajaxAlertContainer');
+    if (!container) return;
+
+    const alertId = `ajax-alert-${Date.now()}`;
+    container.innerHTML = '';
+
+    const alertElement = document.createElement('div');
+    alertElement.id = alertId;
+    alertElement.className = `alert alert-${type} alert-dismissible fade show`;
+    alertElement.setAttribute('role', 'alert');
+    alertElement.textContent = message;
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close';
+    closeButton.setAttribute('data-bs-dismiss', 'alert');
+    closeButton.setAttribute('aria-label', 'Close');
+
+    alertElement.appendChild(closeButton);
+    container.appendChild(alertElement);
+
+    setTimeout(() => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertElement);
+        bsAlert.close();
+    }, 8000);
+}
 
 // Auto-submit form on select change (for better UX)
 document.querySelectorAll('#searchForm select').forEach(select => {

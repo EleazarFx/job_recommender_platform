@@ -74,15 +74,7 @@ class CustomUserCreationForm(UserCreationForm):
         })
     )
     
-    terms_accepted = forms.BooleanField(
-        required=True,
-        widget=forms.CheckboxInput(attrs={
-            'class': 'form-check-input'
-        }),
-        error_messages={
-            'required': 'You must accept the Terms of Service and Privacy Policy.'
-        }
-    )
+   
     
     class Meta:
         model = User
@@ -384,7 +376,7 @@ class PasswordResetVerifyForm(forms.Form):
 
 
 class ProfileUpdateForm(forms.ModelForm):
-    """Form for updating user profile with role-specific fields."""
+    """Form for updating user profile."""
     
     skills = forms.CharField(
         required=False,
@@ -408,11 +400,10 @@ class ProfileUpdateForm(forms.ModelForm):
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Lilongwe, Blantyre, Remote, International'
+            'placeholder': 'Mzuzu, Lilongwe, Blantyre, Remote, International'
         })
     )
     
-    # Job type preferences
     preferred_job_types = forms.MultipleChoiceField(
         choices=[
             ('FULL_TIME', 'Full Time'),
@@ -429,9 +420,12 @@ class ProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = Profile
         fields = [
-            'avatar', 'skills', 'qualifications', 
+            'avatar', 'skills', 'qualifications',
             'experience_level', 'years_of_experience',
-            'preferred_locations', 'preferred_job_types'
+            'preferred_locations', 'preferred_job_types',
+            # Employer fields
+            'company_name', 'company_website', 'company_description',
+            'company_location', 'company_size', 'industry',
         ]
         widgets = {
             'avatar': forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
@@ -441,70 +435,22 @@ class ProfileUpdateForm(forms.ModelForm):
                 'min': 0,
                 'max': 50
             }),
+            'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Your company name'}),
+            'company_website': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://www.example.com'}),
+            'company_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Tell us about your company...'}),
+            'company_location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Lilongwe, Malawi'}),
+            'company_size': forms.Select(attrs={'class': 'form-select'}),
+            'industry': forms.Select(attrs={'class': 'form-select'}),
         }
     
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Set initial value for preferred_job_types from JSON field
         if self.instance and self.instance.preferred_job_types:
             self.fields['preferred_job_types'].initial = self.instance.preferred_job_types
-        
-        # Add employer-specific fields if user is employer
-        if self.user and self.user.user_type == 'EMPLOYER':
-            self.fields['company_name'] = forms.CharField(
-                required=False,
-                max_length=255,
-                widget=forms.TextInput(attrs={
-                    'class': 'form-control',
-                    'placeholder': 'Your company name'
-                })
-            )
-            self.fields['company_website'] = forms.URLField(
-                required=False,
-                widget=forms.URLInput(attrs={
-                    'class': 'form-control',
-                    'placeholder': 'https://www.example.com'
-                })
-            )
-            self.fields['company_description'] = forms.CharField(
-                required=False,
-                widget=forms.Textarea(attrs={
-                    'class': 'form-control',
-                    'rows': 3,
-                    'placeholder': 'Tell us about your company...'
-                })
-            )
-    
-    def clean_skills(self):
-        """Normalize skills format."""
-        skills = self.cleaned_data.get('skills', '')
-        if skills:
-            # Remove extra spaces and standardize
-            skills_list = [s.strip().lower() for s in skills.split(',') if s.strip()]
-            skills = ', '.join(sorted(set(skills_list)))
-        return skills
-    
-    def clean_preferred_locations(self):
-        """Normalize locations format."""
-        locations = self.cleaned_data.get('preferred_locations', '')
-        if locations:
-            locations_list = [l.strip().title() for l in locations.split(',') if l.strip()]
-            locations = ', '.join(sorted(set(locations_list)))
-        return locations
-    
-    def clean_years_of_experience(self):
-        """Validate years of experience."""
-        years = self.cleaned_data.get('years_of_experience', 0)
-        if years and years < 0:
-            raise forms.ValidationError('Years of experience cannot be negative.')
-        if years > 50:
-            raise forms.ValidationError('Please enter a valid number of years.')
-        return years
     
     def clean_preferred_job_types(self):
-        """Ensure preferred_job_types is always a list."""
         value = self.cleaned_data.get('preferred_job_types', [])
         if value is None:
             return []

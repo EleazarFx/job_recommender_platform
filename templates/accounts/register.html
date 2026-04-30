@@ -1,21 +1,20 @@
-{% extends 'base/base.html' %}
-{% load static %}
-
-{% block title %}Sign Up - {{ block.super }}{% endblock %}
-
-{% block content %}
+{% extends 'base/base.html' %} 
+{% load static %} 
+{% block title %}Sign Up - {{block.super }} 
+{% endblock %} {% block content %}
 <div class="container mt-4 mb-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            
             <!-- Header -->
             <div class="text-center mb-4">
                 <h1 class="display-5 fw-bold">
                     <i class="fas fa-user-plus text-primary"></i> Join {{ SITE_NAME }}
                 </h1>
-                <p class="text-muted">Create your account and start your journey today</p>
+                <p class="text-muted">
+                    Create your account and start your journey today
+                </p>
             </div>
-            
+
             <!-- Role Selection Cards (Visual) -->
             <div class="row mb-4">
                 <div class="col-md-6 mb-3">
@@ -29,9 +28,18 @@
                                 Find your dream job with AI-powered recommendations
                             </p>
                             <ul class="list-unstyled text-start small">
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Personalized job matches</li>
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Save and track applications</li>
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Skill gap insights</li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                    Personalized job matches
+                                </li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i> Save and
+                                    track applications
+                                </li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i> Skill
+                                    gap insights
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -47,33 +55,52 @@
                                 Post jobs and find the best talent in Malawi
                             </p>
                             <ul class="list-unstyled text-start small">
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Post unlimited jobs</li>
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Manage applications</li>
-                                <li><i class="fas fa-check-circle text-success me-1"></i> Get verified for trust badge</li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i> Post
+                                    unlimited jobs
+                                </li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i> Manage
+                                    applications
+                                </li>
+                                <li>
+                                    <i class="fas fa-check-circle text-success me-1"></i> Get
+                                    verified for trust badge
+                                </li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- Registration Form -->
             <div class="card shadow-sm">
                 <div class="card-body p-4">
                     <h4 class="card-title mb-4">
                         <i class="fas fa-pencil-alt text-primary me-2"></i>Account Details
                     </h4>
-                    
-                    <form method="post" novalidate id="registerForm">
+
+                    <form method="post" action="{% url 'accounts:register' %}" novalidate id="registerForm">
                         {% csrf_token %}
-                        
+
+                        <!-- Display all form errors at top if any -->
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            <p class="mb-0">
+                                <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                            </p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                         <!-- Name Fields -->
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">
                                     <i class="fas fa-user text-muted me-1"></i>First Name
                                 </label>
-                                {{ form.first_name }}
-                                {% if form.first_name.errors %}
+                                {{ form.first_name }} {% if form.first_name.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.first_name.errors|join:", " }}
                                 </div>
@@ -84,8 +111,7 @@
                                 <label class="form-label fw-bold">
                                     <i class="fas fa-user text-muted me-1"></i>Last Name
                                 </label>
-                                {{ form.last_name }}
-                                {% if form.last_name.errors %}
+                                {{ form.last_name }} {% if form.last_name.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.last_name.errors|join:", " }}
                                 </div>
@@ -98,8 +124,7 @@
                             <label class="form-label fw-bold">
                                 <i class="fas fa-envelope text-muted me-1"></i>Email Address
                             </label>
-                            {{ form.email }}
-                            {% if form.email.errors %}
+                            {{ form.email }} {% if form.email.errors %}
                             <div class="invalid-feedback d-block">
                                 {{ form.email.errors|join:", " }}
                             </div>
@@ -114,22 +139,15 @@
                             <label class="form-label fw-bold">
                                 <i class="fas fa-tag text-muted me-1"></i>I am a...
                             </label>
-                            <select name="user_type" class="form-select" id="userTypeSelect" required>
-                                <option value="JOB_SEEKER">
-                                    💼 Job Seeker - Looking for opportunities
-                                </option>
-                                <option value="EMPLOYER">
-                                    🏢 Employer - Hiring talent
-                                </option>
-                            </select>
-                            {% if form.user_type.errors %}
+                            {{ form.user_type }} {% if form.user_type.errors %}
                             <div class="invalid-feedback d-block">
                                 {{ form.user_type.errors|join:", " }}
                             </div>
                             {% endif %}
                             <small class="form-text text-muted">
                                 <i class="fas fa-shield-alt me-1"></i>
-                                Administrator accounts are created through secure internal processes only.
+                                Administrator accounts are created through secure internal
+                                processes only.
                             </small>
                         </div>
 
@@ -139,21 +157,20 @@
                                 <label class="form-label fw-bold">
                                     <i class="fas fa-lock text-muted me-1"></i>Password
                                 </label>
-                                {{ form.password1 }}
-                                {% if form.password1.errors %}
+                                {{ form.password1 }} {% if form.password1.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.password1.errors|join:", " }}
                                 </div>
                                 {% endif %}
-                                
+
                                 <!-- Password Strength Indicator -->
                                 <div class="mt-2" id="passwordStrength">
-                                    <div class="progress" style="height: 5px;">
-                                        <div class="progress-bar" id="strengthBar" style="width: 0%;"></div>
+                                    <div class="progress" style="height: 5px">
+                                        <div class="progress-bar" id="strengthBar" style="width: 0%"></div>
                                     </div>
                                     <small id="strengthText" class="text-muted"></small>
                                 </div>
-                                
+
                                 <small class="form-text text-muted">
                                     Minimum 8 characters, not entirely numeric
                                 </small>
@@ -161,10 +178,10 @@
 
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold">
-                                    <i class="fas fa-check-circle text-muted me-1"></i>Confirm Password
+                                    <i class="fas fa-check-circle text-muted me-1"></i>Confirm
+                                    Password
                                 </label>
-                                {{ form.password2 }}
-                                {% if form.password2.errors %}
+                                {{ form.password2 }} {% if form.password2.errors %}
                                 <div class="invalid-feedback d-block">
                                     {{ form.password2.errors|join:", " }}
                                 </div>
@@ -176,29 +193,13 @@
                         <!-- Terms Agreement -->
                         <div class="mb-4">
                             <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="agreeTerms" required>
+                                <input type="checkbox" class="form-check-input" id="agreeTerms" required />
                                 <label class="form-check-label" for="agreeTerms">
-                                    I agree to the <a href="{% url 'core:terms' %}" target="_blank">Terms of Service</a> 
-                                    and <a href="{% url 'core:privacy' %}" target="_blank">Privacy Policy</a>
+                                    I agree to the
+                                    <a href="{% url 'core:terms' %}" target="_blank">Terms of Service</a>
+                                    and
+                                    <a href="{% url 'core:privacy' %}" target="_blank">Privacy Policy</a>
                                 </label>
-                            </div>
-                        </div>
-
-                        <!-- Trust Indicators -->
-                        <div class="alert alert-light border mb-4">
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <i class="fas fa-shield-alt text-success"></i>
-                                    <small class="d-block">Secure Registration</small>
-                                </div>
-                                <div class="col-4">
-                                    <i class="fas fa-lock text-primary"></i>
-                                    <small class="d-block">Encrypted Data</small>
-                                </div>
-                                <div class="col-4">
-                                    <i class="fas fa-user-check text-info"></i>
-                                    <small class="d-block">Verified Platform</small>
-                                </div>
                             </div>
                         </div>
 
@@ -206,25 +207,15 @@
                         <button type="submit" class="btn btn-primary w-100 mb-3" id="submitBtn">
                             <i class="fas fa-user-plus"></i> Create Account
                         </button>
-
-                        <hr class="my-4">
-
-                        <!-- Login Link -->
-                        <div class="text-center">
-                            <p class="mb-0">Already have an account?</p>
-                            <a href="{% url 'accounts:login' %}" class="btn btn-outline-primary w-100 mt-2">
-                                <i class="fas fa-sign-in-alt"></i> Sign In
-                            </a>
-                        </div>
                     </form>
                 </div>
             </div>
-            
+
             <!-- Why Join Section -->
             <div class="card mt-4 bg-light border-0">
                 <div class="card-body">
                     <h5 class="card-title text-center mb-3">
-                        <i class="fas fa-star text-warning me-2"></i>Why Join {{ SITE_NAME }}?
+                        <i class="fas fa-star text-warning me-2"></i>Why Join {{ SITE_NAME}}?
                     </h5>
                     <div class="row text-center">
                         <div class="col-md-4 mb-3">
@@ -250,188 +241,211 @@
 </div>
 
 <script>
-// ============================================
-// ROLE CARD SELECTION
-// ============================================
-document.querySelectorAll('.role-card').forEach(card => {
-    card.addEventListener('click', function() {
-        const role = this.dataset.role;
-        document.getElementById('userTypeSelect').value = role;
-        
-        // Visual feedback
-        document.querySelectorAll('.role-card').forEach(c => {
-            c.classList.remove('border-primary', 'border-success', 'border-3');
+    // ============================================
+    // ROLE CARD SELECTION
+    // ============================================
+    document.querySelectorAll(".role-card").forEach((card) => {
+        card.addEventListener("click", function () {
+            const role = this.dataset.role;
+            document.getElementById("userTypeSelect").value = role;
+
+            // Visual feedback
+            document.querySelectorAll(".role-card").forEach((c) => {
+                c.classList.remove("border-primary", "border-success", "border-3");
+            });
+            this.classList.add(
+                role === "JOB_SEEKER" ? "border-primary" : "border-success",
+                "border-3",
+            );
         });
-        this.classList.add(role === 'JOB_SEEKER' ? 'border-primary' : 'border-success', 'border-3');
     });
-});
 
-// ============================================
-// PASSWORD STRENGTH METER
-// ============================================
-const passwordInput = document.getElementById('id_password1');
-const strengthBar = document.getElementById('strengthBar');
-const strengthText = document.getElementById('strengthText');
+    // ============================================
+    // PASSWORD STRENGTH METER
+    // ============================================
+    const passwordInput = document.getElementById("id_password1");
+    const strengthBar = document.getElementById("strengthBar");
+    const strengthText = document.getElementById("strengthText");
 
-if (passwordInput) {
-    passwordInput.addEventListener('input', function() {
-        const password = this.value;
-        let strength = 0;
-        let feedback = '';
-        let color = '';
-        
-        if (password.length >= 8) strength += 25;
-        if (password.match(/[a-z]/)) strength += 25;
-        if (password.match(/[A-Z]/)) strength += 25;
-        if (password.match(/[0-9]/) || password.match(/[^a-zA-Z0-9]/)) strength += 25;
-        
-        if (strength <= 25) {
-            feedback = 'Weak';
-            color = 'bg-danger';
-        } else if (strength <= 50) {
-            feedback = 'Fair';
-            color = 'bg-warning';
-        } else if (strength <= 75) {
-            feedback = 'Good';
-            color = 'bg-info';
-        } else {
-            feedback = 'Strong';
-            color = 'bg-success';
-        }
-        
-        strengthBar.style.width = strength + '%';
-        strengthBar.className = 'progress-bar ' + color;
-        strengthText.textContent = feedback;
-    });
-}
+    if (passwordInput) {
+        passwordInput.addEventListener("input", function () {
+            const password = this.value;
+            let strength = 0;
+            let feedback = "";
+            let color = "";
 
-// ============================================
-// PASSWORD MATCH VALIDATION
-// ============================================
-const password2Input = document.getElementById('id_password2');
-const passwordMatch = document.getElementById('passwordMatch');
+            if (password.length >= 8) strength += 25;
+            if (password.match(/[a-z]/)) strength += 25;
+            if (password.match(/[A-Z]/)) strength += 25;
+            if (password.match(/[0-9]/) || password.match(/[^a-zA-Z0-9]/))
+                strength += 25;
 
-if (password2Input) {
-    password2Input.addEventListener('input', function() {
-        const password1 = passwordInput.value;
-        const password2 = this.value;
-        
-        if (password2.length === 0) {
-            passwordMatch.textContent = '';
-            passwordMatch.className = 'form-text';
-        } else if (password1 === password2) {
-            passwordMatch.textContent = '✓ Passwords match';
-            passwordMatch.className = 'form-text text-success';
-        } else {
-            passwordMatch.textContent = '✗ Passwords do not match';
-            passwordMatch.className = 'form-text text-danger';
-        }
-    });
-}
-
-// ============================================
-// FORM VALIDATION
-// ============================================
-document.getElementById('registerForm').addEventListener('submit', function(e) {
-    const termsChecked = document.getElementById('agreeTerms').checked;
-    const password1 = passwordInput?.value || '';
-    const password2 = password2Input?.value || '';
-    
-    if (!termsChecked) {
-        e.preventDefault();
-        alert('Please agree to the Terms of Service and Privacy Policy.');
-        return false;
-    }
-    
-    if (password1 !== password2) {
-        e.preventDefault();
-        alert('Passwords do not match.');
-        return false;
-    }
-    
-    if (password1.length < 8) {
-        e.preventDefault();
-        alert('Password must be at least 8 characters long.');
-        return false;
-    }
-    
-    // Show loading state
-    const btn = document.getElementById('submitBtn');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
-    btn.disabled = true;
-});
-
-// ============================================
-// EMAIL VALIDATION
-// ============================================
-const emailInput = document.getElementById('id_email');
-if (emailInput) {
-    emailInput.addEventListener('blur', function() {
-        const email = this.value;
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        if (email && !emailRegex.test(email)) {
-            this.classList.add('is-invalid');
-            if (!this.nextElementSibling?.classList.contains('invalid-feedback')) {
-                const feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback d-block';
-                feedback.textContent = 'Please enter a valid email address.';
-                this.parentNode.appendChild(feedback);
+            if (strength <= 25) {
+                feedback = "Weak";
+                color = "bg-danger";
+            } else if (strength <= 50) {
+                feedback = "Fair";
+                color = "bg-warning";
+            } else if (strength <= 75) {
+                feedback = "Good";
+                color = "bg-info";
+            } else {
+                feedback = "Strong";
+                color = "bg-success";
             }
-        } else {
-            this.classList.remove('is-invalid');
-            const feedback = this.parentNode.querySelector('.invalid-feedback');
-            if (feedback) feedback.remove();
-        }
-    });
-}
 
-// ============================================
-// SYNC ROLE SELECT WITH CARDS
-// ============================================
-document.getElementById('userTypeSelect').addEventListener('change', function() {
-    const role = this.value;
-    document.querySelectorAll('.role-card').forEach(card => {
-        card.classList.remove('border-primary', 'border-success', 'border-3');
-        if (card.dataset.role === role) {
-            card.classList.add(role === 'JOB_SEEKER' ? 'border-primary' : 'border-success', 'border-3');
-        }
-    });
-});
+            strengthBar.style.width = strength + "%";
+            strengthBar.className = "progress-bar " + color;
+            strengthText.textContent = feedback;
+        });
+    }
 
-// Initialize role card selection
-document.addEventListener('DOMContentLoaded', function() {
-    const initialRole = document.getElementById('userTypeSelect').value;
-    document.querySelectorAll('.role-card').forEach(card => {
-        if (card.dataset.role === initialRole) {
-            card.classList.add(initialRole === 'JOB_SEEKER' ? 'border-primary' : 'border-success', 'border-3');
+    // ============================================
+    // PASSWORD MATCH VALIDATION
+    // ============================================
+    const password2Input = document.getElementById("id_password2");
+    const passwordMatch = document.getElementById("passwordMatch");
+
+    if (password2Input) {
+        password2Input.addEventListener("input", function () {
+            const password1 = passwordInput.value;
+            const password2 = this.value;
+
+            if (password2.length === 0) {
+                passwordMatch.textContent = "";
+                passwordMatch.className = "form-text";
+            } else if (password1 === password2) {
+                passwordMatch.textContent = "✓ Passwords match";
+                passwordMatch.className = "form-text text-success";
+            } else {
+                passwordMatch.textContent = "✗ Passwords do not match";
+                passwordMatch.className = "form-text text-danger";
+            }
+        });
+    }
+
+    // ============================================
+    // FORM VALIDATION
+    // ============================================
+    document.getElementById('registerForm').addEventListener('submit', function(e) {
+        const termsChecked = document.getElementById('agreeTerms').checked;
+        const password1 = document.getElementById('id_password1')?.value || '';
+        const password2 = document.getElementById('id_password2')?.value || '';
+        let hasError = false;
+    
+        // Clear previous error highlights
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        if (!termsChecked) {
+            e.preventDefault();
+            alert('Please agree to the Terms of Service and Privacy Policy.');
+            hasError = true;
+        }
+        
+        if (password1 !== password2) {
+            e.preventDefault();
+            alert('Passwords do not match.');
+            document.getElementById('id_password2').classList.add('is-invalid');
+            hasError = true;
+        }
+        
+        if (password1.length < 8) {
+            e.preventDefault();
+            alert('Password must be at least 8 characters long.');
+            document.getElementById('id_password1').classList.add('is-invalid');
+            hasError = true;
+        }
+        
+        if (!hasError) {
+            // Show loading state only if form is valid
+            const btn = document.getElementById('submitBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            btn.disabled = true;
         }
     });
-});
+
+    // ============================================
+    // EMAIL VALIDATION
+    // ============================================
+    const emailInput = document.getElementById("id_email");
+    if (emailInput) {
+        emailInput.addEventListener("blur", function () {
+            const email = this.value;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+            if (email && !emailRegex.test(email)) {
+                this.classList.add("is-invalid");
+                if (!this.nextElementSibling?.classList.contains("invalid-feedback")) {
+                    const feedback = document.createElement("div");
+                    feedback.className = "invalid-feedback d-block";
+                    feedback.textContent = "Please enter a valid email address.";
+                    this.parentNode.appendChild(feedback);
+                }
+            } else {
+                this.classList.remove("is-invalid");
+                const feedback = this.parentNode.querySelector(".invalid-feedback");
+                if (feedback) feedback.remove();
+            }
+        });
+    }
+
+    // ============================================
+    // SYNC ROLE SELECT WITH CARDS
+    // ============================================
+    document
+        .getElementById("userTypeSelect")
+        .addEventListener("change", function () {
+            const role = this.value;
+            document.querySelectorAll(".role-card").forEach((card) => {
+                card.classList.remove("border-primary", "border-success", "border-3");
+                if (card.dataset.role === role) {
+                    card.classList.add(
+                        role === "JOB_SEEKER" ? "border-primary" : "border-success",
+                        "border-3",
+                    );
+                }
+            });
+        });
+
+    // Initialize role card selection
+    document.addEventListener("DOMContentLoaded", function () {
+        const initialRole = document.getElementById("userTypeSelect").value;
+        document.querySelectorAll(".role-card").forEach((card) => {
+            if (card.dataset.role === initialRole) {
+                card.classList.add(
+                    initialRole === "JOB_SEEKER" ? "border-primary" : "border-success",
+                    "border-3",
+                );
+            }
+        });
+    });
 </script>
 
 <style>
-.role-card {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
+    .role-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
 
-.role-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+    .role-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
 
-.role-card.border-3 {
-    border-width: 3px !important;
-}
+    .role-card.border-3 {
+        border-width: 3px !important;
+    }
 
-.form-control:focus, .form-select:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
-}
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
 
-#strengthBar {
-    transition: width 0.3s ease, background-color 0.3s ease;
-}
+    #strengthBar {
+        transition:
+            width 0.3s ease,
+            background-color 0.3s ease;
+    }
 </style>
 {% endblock %}

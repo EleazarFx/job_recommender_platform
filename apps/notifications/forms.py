@@ -45,26 +45,66 @@ class NotificationPreferenceForm(forms.ModelForm):
 
 
 class JobAlertForm(forms.ModelForm):
-    """
-    Form for creating/editing job alerts.
-    """
+    """Form for creating/editing job alerts."""
+    
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g., "Python Jobs in Lilongwe"'
+        })
+    )
+    
+    keywords = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Skills or job titles'
+        })
+    )
+    
+    location = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'City or district'
+        })
+    )
+    
+    # Use proper job type choices matching the model
+    JOB_TYPE_CHOICES = [
+        ('FT', 'Full Time'),
+        ('PT', 'Part Time'),
+        ('CT', 'Contract'),
+        ('IN', 'Internship'),
+        ('RM', 'Remote'),
+        ('HY', 'Hybrid'),
+        ('FL', 'Freelance'),
+    ]
+    
+    job_types = forms.MultipleChoiceField(
+        choices=JOB_TYPE_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'form-check-input'})
+    )
+    
+    frequency = forms.ChoiceField(
+        choices=[
+            ('DAILY', 'Daily Digest'),
+            ('WEEKLY', 'Weekly Summary'),
+            ('INSTANT', 'Instant (When posted)'),
+        ],
+        initial='DAILY',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
     
     class Meta:
         model = JobAlert
         fields = ['name', 'keywords', 'location', 'frequency', 'job_types']
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'e.g., "Python Jobs in Lilongwe"'
-            }),
-            'keywords': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Skills or job titles'
-            }),
-            'location': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'City or district'
-            }),
-            'frequency': forms.Select(attrs={'class': 'form-select'}),
-            'job_types': forms.SelectMultiple(attrs={'class': 'form-select'}),
-        }
+    
+    def clean_job_types(self):
+        """Ensure job_types is always a list."""
+        value = self.cleaned_data.get('job_types', [])
+        if value is None:
+            return []
+        return list(value)

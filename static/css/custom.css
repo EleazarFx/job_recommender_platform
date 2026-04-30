@@ -152,10 +152,10 @@ main {
 }
 
 /* Mobile optimizations */
-@media (max-width: 768px) {
-    .container {
-        padding-left: 1rem;
-        padding-right: 1rem;
+@media (max-width: 991px) {
+    .filters-sidebar {
+        position: static !important;
+        top: auto !important;
     }
 
     .navbar-brand {
@@ -168,6 +168,13 @@ main {
 
     h2 {
         font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 }
 

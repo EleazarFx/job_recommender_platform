@@ -1,0 +1,249 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Job Alerts - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'notifications:list' %}">Notifications</a></li>
+            <li class="breadcrumb-item active">Job Alerts</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="fas fa-bell text-primary"></i> Job Alerts
+            </h1>
+            <p class="text-muted mb-0">Manage your job alert notifications</p>
+        </div>
+        <div>
+            <a href="{% url 'notifications:create_alert' %}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Create New Alert
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-3">
+                    <h6 class="text-white-50 mb-0">Total Alerts</h6>
+                    <h3 class="mb-0">{{ total_alerts|default:alerts.count }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body py-3">
+                    <h6 class="text-white-50 mb-0">Active</h6>
+                    <h3 class="mb-0">{{ active_alerts|default:0 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-secondary text-white">
+                <div class="card-body py-3">
+                    <h6 class="text-white-50 mb-0">Paused</h6>
+                    <h3 class="mb-0" id="pausedCount">-</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts List -->
+    {% if alerts %}
+        <div class="row">
+            {% for alert in alerts %}
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 {% if not alert.is_active %}border-secondary bg-light{% endif %}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">{{ alert.name }}</h5>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input toggle-alert" type="checkbox" 
+                                       data-alert-id="{{ alert.id }}"
+                                       {% if alert.is_active %}checked{% endif %}>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-2">
+                            {% if alert.keywords %}
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-search"></i> {{ alert.keywords }}
+                            </span>
+                            {% endif %}
+                            {% if alert.location %}
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-map-marker-alt"></i> {{ alert.location }}
+                            </span>
+                            {% endif %}
+                            <span class="badge bg-info text-white">
+                                <i class="fas fa-clock"></i> {{ alert.get_frequency_display }}
+                            </span>
+                        </div>
+                        
+                        {% if alert.job_types %}
+                        <div class="mb-2">
+                            {% for jt in alert.job_types %}
+                            <span class="badge bg-secondary me-1">{{ jt }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> Created: {{ alert.created_at|date:"M d, Y" }}
+                                {% if alert.last_triggered %}
+                                <span class="ms-2">
+                                    <i class="fas fa-sync"></i> Last triggered: {{ alert.last_triggered|date:"M d, Y" }}
+                                </span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        
+                        {% if alert.total_jobs_found > 0 %}
+                        <div class="mb-2">
+                            <small class="text-success">
+                                <i class="fas fa-check-circle"></i> {{ alert.total_jobs_found }} jobs found total
+                            </small>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Status Badge -->
+                        <div>
+                            {% if alert.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Paused</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Delete Button -->
+                        <button class="btn btn-sm btn-outline-danger mt-2 delete-alert-btn" 
+                                data-alert-id="{{ alert.id }}"
+                                data-alert-name="{{ alert.name }}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <i class="fas fa-bell-slash fa-5x text-muted mb-4"></i>
+            <h2>No job alerts yet</h2>
+            <p class="text-muted mb-4">Create job alerts to get notified when new jobs match your criteria.</p>
+            <a href="{% url 'notifications:create_alert' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus-circle"></i> Create Your First Alert
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Alert</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete "<strong id="deleteAlertName"></strong>"?</p>
+                <p class="text-muted">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================
+// TOGGLE ALERT ACTIVE STATUS
+// ============================================
+document.querySelectorAll('.toggle-alert').forEach(toggle => {
+    toggle.addEventListener('change', function() {
+        const alertId = this.dataset.alertId;
+        const isActive = this.checked;
+        
+        fetch(`/notifications/alerts/${alertId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the card appearance
+                const card = this.closest('.card');
+                if (data.is_active) {
+                    card.classList.remove('border-secondary', 'bg-light');
+                } else {
+                    card.classList.add('border-secondary', 'bg-light');
+                }
+                // Reload to update all counts
+                location.reload();
+            }
+        });
+    });
+});
+
+// ============================================
+// DELETE ALERT
+// ============================================
+let deleteAlertId = null;
+
+document.querySelectorAll('.delete-alert-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        deleteAlertId = this.dataset.alertId;
+        document.getElementById('deleteAlertName').textContent = this.dataset.alertName;
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteAlertModal'));
+        modal.show();
+    });
+});
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+    if (!deleteAlertId) return;
+    
+    fetch(`/notifications/alerts/${deleteAlertId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+    
+    bootstrap.Modal.getInstance(document.getElementById('deleteAlertModal')).hide();
+});
+
+// ============================================
+// UPDATE PAUSED COUNT
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    const totalAlerts = {{ alerts.count|default:0 }};
+    const activeAlerts = document.querySelectorAll('.toggle-alert:checked').length;
+    document.getElementById('pausedCount').textContent = totalAlerts - activeAlerts;
+});
+</script>
+{% endblock %}

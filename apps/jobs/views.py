@@ -268,7 +268,6 @@ def category_jobs(request, slug):
 # JOB SEEKER ONLY VIEWS
 # ============================================
 
-@login_required
 @job_seeker_required
 def save_job(request, pk):
     """
@@ -303,37 +302,40 @@ def save_job(request, pk):
     return redirect('jobs:detail', pk=pk)
 
 
-@login_required
 @job_seeker_required
 def saved_jobs(request):
     """
     View user's saved/bookmarked jobs.
     Access: Job Seekers ONLY
     """
+    # Return JSON count for AJAX/count_only requests (used by nav badges)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.GET.get('count_only'):
+        count = SavedJob.objects.filter(user=request.user).count()
+        return JsonResponse({'count': count})
+
     saved = SavedJob.objects.filter(
         user=request.user
     ).select_related('job', 'job__category').order_by('-saved_at')
-    
+
     # Pagination
     paginator = Paginator(saved, 20)
     page = request.GET.get('page', 1)
-    
+
     try:
         saved_jobs = paginator.page(page)
     except PageNotAnInteger:
         saved_jobs = paginator.page(1)
     except EmptyPage:
         saved_jobs = paginator.page(paginator.num_pages)
-    
+
     context = {
         'saved_jobs': saved_jobs,
         'total_saved': saved.count(),
     }
-    
+
     return render(request, 'jobs/saved_jobs.html', context)
 
 
-@login_required
 @job_seeker_required
 def apply_job(request, pk):
     """
@@ -379,7 +381,6 @@ def apply_job(request, pk):
 # EMPLOYER ONLY VIEWS
 # ============================================
 
-@login_required
 @employer_required
 def post_job(request):
     """
@@ -421,7 +422,6 @@ def post_job(request):
     return render(request, 'jobs/post_job.html', context)
 
 
-@login_required
 @employer_required
 def my_jobs(request):
     """
