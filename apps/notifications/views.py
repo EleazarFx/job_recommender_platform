@@ -158,7 +158,7 @@ def create_job_alert(request):
     return render(request, 'notifications/create_alert.html', {'form': form})
 
 
-@login_required
+@job_seeker_required
 @require_POST
 def toggle_alert(request, pk):
     """
@@ -176,7 +176,7 @@ def toggle_alert(request, pk):
     })
 
 
-@login_required
+@job_seeker_required
 @require_POST
 def delete_alert(request, pk):
     """
@@ -296,10 +296,14 @@ def recent_notifications_api(request):
 
 def saved_jobs_count_api(request):
     """
-    API endpoint for saved jobs count.
+    API endpoint for saved jobs count (JobSeeker-only).
     Used in navigation bar badge.
     """
     if not request.user.is_authenticated:
+        return JsonResponse({'count': 0})
+    
+    # Only JobSeekers save jobs
+    if request.user.user_type != 'JOB_SEEKER':
         return JsonResponse({'count': 0})
     
     from apps.jobs.models import SavedJob
@@ -310,10 +314,14 @@ def saved_jobs_count_api(request):
 
 def job_alerts_api(request):
     """
-    API endpoint for user's job alerts.
+    API endpoint for user's job alerts (JobSeeker-only).
     Used in create alert sidebar.
     """
     if not request.user.is_authenticated:
+        return JsonResponse({'alerts': []})
+    
+    # Only JobSeekers have job alerts
+    if request.user.user_type != 'JOB_SEEKER':
         return JsonResponse({'alerts': []})
     
     alerts = JobAlert.objects.filter(

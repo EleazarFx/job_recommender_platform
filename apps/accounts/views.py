@@ -305,7 +305,7 @@ def change_password(request):
 
 @method_decorator(login_required, name='dispatch')
 class ProfileSetupView(UpdateView):
-    """Complete profile after registration."""
+    """Complete profile after registration - role-specific form fields."""
     model = Profile
     form_class = ProfileUpdateForm
     template_name = 'accounts/profile_setup.html'
@@ -313,6 +313,41 @@ class ProfileSetupView(UpdateView):
     
     def get_object(self, queryset=None):
         return self.request.user.profile
+    
+    def get_form(self, form_class=None):
+        """Get form and filter fields based on user role."""
+        form = super().get_form(form_class)
+        user_type = self.request.user.user_type
+        
+        # JobSeeker fields
+        job_seeker_fields = {
+            'avatar', 'skills', 'qualifications', 'experience_level', 
+            'years_of_experience', 'preferred_locations', 'preferred_job_types'
+        }
+        
+        # Employer/Admin fields
+        employer_fields = {
+            'avatar', 'company_name', 'company_website', 'company_description',
+            'company_location', 'company_size', 'industry'
+        }
+        
+        # Determine which fields to show
+        admin_fields = {'avatar'}
+        if self.request.user.is_staff or user_type == 'ADMIN':
+            allowed_fields = admin_fields
+        elif user_type == 'JOB_SEEKER':
+            allowed_fields = job_seeker_fields
+        elif user_type == 'EMPLOYER':
+            allowed_fields = employer_fields
+        else:
+            allowed_fields = job_seeker_fields  # Default
+        
+        # Remove disallowed fields
+        for field_name in list(form.fields.keys()):
+            if field_name not in allowed_fields:
+                del form.fields[field_name]
+        
+        return form
     
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -323,16 +358,34 @@ class ProfileSetupView(UpdateView):
 
 @login_required
 def profile_view(request):
-    """View user profile."""
+    """View user profile (role-specific content)."""
     profile = request.user.profile
     completion_percentage = request.user.profile_completion_percentage
+    user_type = request.user.user_type
+    if request.user.is_staff or user_type == 'ADMIN':
+        completion_percentage = 100
+        user_type = 'ADMIN'
     
+    # Role-specific context
     context = {
         'profile': profile,
         'completion_percentage': completion_percentage,
-        'skills_list': profile.get_skills_list(),
-        'locations_list': profile.get_preferred_locations_list(),
+        'user_type': user_type,
     }
+    
+    # JobSeeker-specific fields
+    if user_type == 'JOB_SEEKER':
+        context.update({
+            'skills_list': profile.get_skills_list(),
+            'locations_list': profile.get_preferred_locations_list(),
+        })
+    
+    # Employer/Admin-specific fields
+    if user_type in ['EMPLOYER', 'ADMIN']:
+        context.update({
+            'is_verified': request.user.is_verified_employer,
+        })
+    
     return render(request, 'accounts/profile.html', context)
 
 
@@ -374,7 +427,14 @@ def delete_account(request):
 
 @login_required
 def profile_stats_api(request):
-    """API endpoint for profile statistics."""
+    """API endpoint for profile statistics (JobSeeker-specific)."""
+    # Only JobSeekers should access profile stats
+    if request.user.user_type != 'JOB_SEEKER':
+        return JsonResponse(
+            {'success': False, 'message': 'This feature is for job seekers only.'},
+            status=403
+        )
+    
     profile = request.user.profile
     
     data = {
@@ -391,7 +451,7 @@ def profile_stats_api(request):
 @login_required
 @require_POST
 def update_profile_ajax(request):
-    """AJAX endpoint for updating profile fields."""
+    """AJAX endpoint for updating profile fields (role-based)."""
     import json
     from json import JSONDecodeError
     
@@ -402,11 +462,18 @@ def update_profile_ajax(request):
     
     field = data.get('field')
     value = data.get('value')
+    user_type = request.user.user_type
     
-    allowed_fields = ['skills', 'qualifications', 'preferred_locations']
+    # Role-specific allowed fields
+    if user_type == 'JOB_SEEKER':
+        allowed_fields = ['skills', 'qualifications', 'preferred_locations']
+    elif user_type in ['EMPLOYER', 'ADMIN']:
+        allowed_fields = ['company_name', 'company_website', 'company_size']
+    else:
+        return JsonResponse({'success': False, 'message': 'Invalid user type.'}, status=403)
     
     if field not in allowed_fields:
-        return JsonResponse({'success': False, 'message': 'Invalid field.'})
+        return JsonResponse({'success': False, 'message': 'Invalid field for your role.'})
     
     profile = request.user.profile
     setattr(profile, field, value)

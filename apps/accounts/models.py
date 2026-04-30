@@ -28,6 +28,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('user_type', 'ADMIN')
         
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -104,6 +105,12 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
     
+    @property
+    def display_user_type(self):
+        if self.is_superuser or self.is_staff:
+            return 'Administrator'
+        return self.get_user_type_display()
+    
     def get_full_name(self):
         """Return full name or email if name not set."""
         if self.first_name and self.last_name:
@@ -113,12 +120,22 @@ class User(AbstractUser):
     def update_profile_completion(self):
         """Calculate and update profile completion percentage."""
         profile = self.profile
-        fields = ['skills', 'qualifications', 'experience_level', 
-                  'preferred_locations', 'preferred_job_types']
-        completed = sum(1 for field in fields if getattr(profile, field))
-        self.profile_completion_percentage = int((completed / len(fields)) * 100)
+        if self.user_type == 'JOB_SEEKER':
+            fields = ['skills', 'qualifications', 'experience_level', 
+                      'preferred_locations', 'preferred_job_types']
+            completed = sum(1 for field in fields if getattr(profile, field))
+            self.profile_completion_percentage = int((completed / len(fields)) * 100)
+        elif self.user_type == 'EMPLOYER':
+            fields = [
+                'company_name', 'company_website', 'company_description',
+                'company_location', 'company_size', 'industry'
+            ]
+            completed = sum(1 for field in fields if getattr(profile, field))
+            self.profile_completion_percentage = int((completed / len(fields)) * 100)
+        else:
+            # Admin profile does not require job seeker or employer fields.
+            self.profile_completion_percentage = 100
         self.save(update_fields=['profile_completion_percentage'])
-
 
 class Profile(models.Model):
     """

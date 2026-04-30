@@ -25,6 +25,12 @@ CSRF_COOKIE_SECURE = not DEBUG  # True in production (HTTPS only)
 SESSION_COOKIE_SECURE = not DEBUG  # True in production
 
 # ============================================
+# SITE CONFIGURATION
+# ============================================
+SITE_NAME = 'Malawi Job Connect'
+SITE_TAGLINE = 'Find Your Next Opportunity'
+
+# ============================================
 # APPLICATION DEFINITION
 # ============================================
 DJANGO_APPS = [

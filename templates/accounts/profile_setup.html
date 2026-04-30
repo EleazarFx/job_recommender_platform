@@ -24,6 +24,8 @@
                                 Help us find the best job matches for you by completing your profile.
                                 {% elif user.user_type == 'EMPLOYER' %}
                                 Set up your employer profile to start posting jobs.
+                                {% elif user.user_type == 'ADMIN' or user.is_staff %}
+                                Configure your administrator profile and manage the platform.
                                 {% else %}
                                 Tell us more about yourself.
                                 {% endif %}
@@ -49,6 +51,8 @@
                             Job Seeker
                             {% elif user.user_type == 'EMPLOYER' %}
                             Employer
+                            {% elif user.user_type == 'ADMIN' or user.is_staff %}
+                            Administrator
                             {% else %}
                             {{ user.get_user_type_display }}
                             {% endif %}
@@ -60,6 +64,8 @@
                             Add your skills and preferences to get personalized job recommendations.
                             {% elif user.user_type == 'EMPLOYER' %}
                             Complete your company profile to start posting jobs.
+                            {% elif user.user_type == 'ADMIN' or user.is_staff %}
+                            Configure your admin settings and access the dashboard.
                             {% endif %}
                         </small>
                     </div>

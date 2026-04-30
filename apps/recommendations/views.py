@@ -221,7 +221,7 @@ def location_demand(request):
 # AJAX/API ENDPOINTS
 # ============================================
 
-@login_required
+@job_seeker_required
 @require_POST
 def track_recommendation_action(request):
     """
@@ -290,7 +290,7 @@ def refresh_recommendations(request):
         })
 
 
-@login_required
+@job_seeker_required
 def get_match_score_api(request, job_id):
     """
     API endpoint to get match score for a specific job.
@@ -424,7 +424,7 @@ def skill_demand_api(request):
     })
 
 
-@login_required
+@job_seeker_required
 def refresh_skill_analysis(request):
     """
     Force refresh skill gap analysis.

@@ -8,8 +8,8 @@ from django.utils import timezone
 def site_settings(request):
     """Add site settings to template context."""
     context = {
-        'SITE_NAME': 'Malawi Job Connect',
-        'SITE_TAGLINE': 'Find Your Next Opportunity',
+        'SITE_NAME': settings.SITE_NAME,
+        'SITE_TAGLINE': settings.SITE_TAGLINE,
         'CURRENT_YEAR': timezone.now().year,
         'DEBUG': settings.DEBUG,
     }
