@@ -40,6 +40,7 @@
                 </button>
             </div>
             
+            <form id="ajaxCsrfForm" style="display: none;">{% csrf_token %}</form>
             {% if page_obj %}
                 {% for match in page_obj %}
                 <div class="card job-card mb-3 fade-in 
@@ -123,8 +124,14 @@
                                         <i class="fas fa-eye"></i> View Job
                                     </a>
                                     <button class="btn btn-outline-secondary btn-sm save-job-btn" 
-                                            data-job-id="{{ match.job.id }}">
+                                            data-job-id="{{ match.job.id }}"
+                                            data-save-url="{% url 'jobs:save' match.job.id %}"
+                                            data-saved="{% if match.job.id in saved_job_ids %}true{% else %}false{% endif %}">
+                                        {% if match.job.id in saved_job_ids %}
+                                        <i class="fas fa-bookmark"></i> Saved
+                                        {% else %}
                                         <i class="far fa-bookmark"></i> Save
+                                        {% endif %}
                                     </button>
                                     <button class="btn btn-outline-secondary btn-sm ignore-job-btn mt-1"
                                             data-job-id="{{ match.job.id }}">
@@ -252,13 +259,53 @@
 <script>
 // Track user actions on recommendations
 document.querySelectorAll('.save-job-btn').forEach(btn => {
+    const isSaved = btn.dataset.saved === 'true';
+    if (isSaved) {
+        btn.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-success');
+    }
+
     btn.addEventListener('click', function() {
         const jobId = this.dataset.jobId;
-        trackAction(jobId, 'save');
-        this.innerHTML = '<i class="fas fa-check"></i> Saved';
-        this.classList.remove('btn-outline-secondary');
-        this.classList.add('btn-success');
-        this.disabled = true;
+        const saveUrl = this.dataset.saveUrl;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+        if (!csrfToken) {
+            alert('CSRF token missing. Please reload the page and try again.');
+            return;
+        }
+
+        fetch(saveUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.message || 'Unable to save job.');
+                return;
+            }
+
+            trackAction(jobId, 'save');
+            if (data.is_saved) {
+                this.innerHTML = '<i class="fas fa-bookmark"></i> Saved';
+                this.classList.remove('btn-outline-secondary');
+                this.classList.add('btn-success');
+            } else {
+                this.innerHTML = '<i class="far fa-bookmark"></i> Save';
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-secondary');
+            }
+        })
+        .catch(error => {
+            console.error('Save job error:', error);
+            alert('There was an error saving this job. Please try again.');
+        });
     });
 });
 

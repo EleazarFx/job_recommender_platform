@@ -29,29 +29,6 @@ main {
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-/* Dark mode adjustments */
-[data-bs-theme="dark"] {
-    --bs-body-bg: #1a1a1a;
-    --bs-body-color: #e0e0e0;
-}
-
-[data-bs-theme="dark"] .card {
-    background-color: #2d2d2d;
-    border-color: #404040;
-}
-
-[data-bs-theme="dark"] .bg-light {
-    background-color: #2d2d2d !important;
-}
-
-[data-bs-theme="dark"] .border {
-    border-color: #404040 !important;
-}
-
-[data-bs-theme="dark"] .text-muted {
-    color: #b0b0b0 !important;
-}
-
 /* Button styling */
 .btn {
     font-weight: 500;
@@ -130,11 +107,6 @@ main {
     background-color: #0d6efd;
     color: white;
     cursor: pointer;
-}
-
-[data-bs-theme="dark"] .skill-tag {
-    background-color: #404040;
-    color: #e0e0e0;
 }
 
 /* Loading spinner */

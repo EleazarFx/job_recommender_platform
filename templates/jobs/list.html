@@ -205,7 +205,7 @@
                     {% endif %}
                     
                     {# Employer/Admin: Post a Job #}
-                    {% if user.is_staff or user.is_authenticated and user.user_type == 'EMPLOYER' or user.is_authenticated and user.user_type == 'ADMIN' %}
+                    {% if user.is_admin or user.user_type == 'EMPLOYER' %}
                     <a href="{% url 'jobs:post' %}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus"></i> Post a Job
                     </a>
@@ -347,6 +347,7 @@
                                     {% if user.is_authenticated and user.user_type == 'JOB_SEEKER' %}
                                     <button class="btn btn-outline-secondary btn-sm save-job-btn" 
                                             data-job-id="{{ job.pk }}"
+                                            data-save-url="{% url 'jobs:save' job.pk %}"
                                             data-saved="{% if job.id in saved_job_ids %}true{% else %}false{% endif %}">
                                         {% if job.id in saved_job_ids %}
                                         <i class="fas fa-bookmark"></i> Saved
@@ -480,7 +481,8 @@ document.querySelectorAll('.save-job-btn').forEach(btn => {
             return;
         }
         
-        fetch(`/jobs/${jobId}/save/`, {
+        const saveUrl = this.dataset.saveUrl || `/jobs/${jobId}/save/`;
+        fetch(saveUrl, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {

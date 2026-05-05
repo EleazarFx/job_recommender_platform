@@ -14,15 +14,24 @@ def site_settings(request):
         'DEBUG': settings.DEBUG,
     }
     
-    # Add pending approvals count for staff users
+    # Add pending approvals and employer verification counts for staff users
     if request.user.is_authenticated and request.user.is_staff:
         try:
             from apps.jobs.models import JobVacancy
+            from apps.accounts.models import User
+
             pending_count = JobVacancy.objects.filter(
                 is_approved=False
             ).count()
+            pending_employer_verifications = User.objects.filter(
+                user_type='EMPLOYER',
+                is_verified_employer=False
+            ).count()
+
             context['pending_approvals'] = pending_count
-        except:
+            context['pending_verifications'] = pending_employer_verifications
+        except Exception:
             context['pending_approvals'] = 0
+            context['pending_verifications'] = 0
     
     return context

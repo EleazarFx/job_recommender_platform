@@ -30,6 +30,8 @@ def recommended_jobs(request):
     """
     Display personalized job recommendations for job seekers.
     Uses pre-calculated match scores for instant loading.
+    
+    Access: Job Seekers ONLY (Admin/Staff excluded via @job_seeker_required decorator)
     """
     user = request.user
     

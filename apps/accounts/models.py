@@ -111,6 +111,11 @@ class User(AbstractUser):
             return 'Administrator'
         return self.get_user_type_display()
     
+    @property
+    def is_admin(self):
+        """Treat any administrator account as admin, whether by role or staff status."""
+        return self.is_superuser or self.is_staff or self.user_type == 'ADMIN'
+    
     def get_full_name(self):
         """Return full name or email if name not set."""
         if self.first_name and self.last_name:

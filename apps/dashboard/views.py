@@ -596,7 +596,6 @@ def analytics_dashboard(request):
     ).filter(job_count__gt=0).order_by('-job_count')[:10]
     
     # Top locations
-    from django.db.models import Count
     top_locations = JobVacancy.objects.filter(
         is_approved=True
     ).values('city').annotate(

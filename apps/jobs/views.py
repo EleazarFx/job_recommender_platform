@@ -49,11 +49,15 @@ def job_list(request):
     else:
         queryset = queryset.order_by('-date_posted')
     
-    # For logged-in users, annotate with match scores
+    # For logged-in users, annotate with match scores (for display)
     if request.user.is_authenticated:
         queryset = queryset.annotate(
             user_match_score=F('user_matches__match_score')
-        ).filter(
+        )
+    
+    # For job seekers (but not staff/admin), filter to show only relevant matches
+    if request.user.is_authenticated and request.user.user_type == 'JOB_SEEKER' and not request.user.is_staff:
+        queryset = queryset.filter(
             Q(user_matches__user=request.user) | Q(user_matches__isnull=True)
         )
     
@@ -275,7 +279,7 @@ def save_job(request, pk):
     Access: Job Seekers ONLY
     """
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'message': 'Method not allowed'})
+        return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
     
     job = get_object_or_404(JobVacancy, pk=pk, is_approved=True)
     
@@ -285,21 +289,18 @@ def save_job(request, pk):
     )
     
     if created:
+        JobVacancy.objects.filter(pk=job.pk).update(save_count=F('save_count') + 1)
         message = f'"{job.title}" has been saved to your bookmarks.'
     else:
         saved.delete()
+        JobVacancy.objects.filter(pk=job.pk).update(save_count=F('save_count') - 1)
         message = f'"{job.title}" has been removed from your bookmarks.'
     
-    # Return JSON for AJAX requests
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            'success': True,
-            'is_saved': created,
-            'message': message
-        })
-    
-    messages.success(request, message)
-    return redirect('jobs:detail', pk=pk)
+    return JsonResponse({
+        'success': True,
+        'is_saved': created,
+        'message': message
+    })
 
 
 @job_seeker_required
