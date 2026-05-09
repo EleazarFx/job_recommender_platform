@@ -1,15 +1,22 @@
 {% extends 'base/base.html' %}
 {% load static %}
 
-{% block title %}My Profile - {{ block.super }}{% endblock %}
+{% block title %}{% if is_admin_view %}Applicant Profile{% else %}My Profile{% endif %} - {{ block.super }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row">
         <div class="col-lg-10 mx-auto">
             
+            {# Determine which user object to display #}
+            {% if is_admin_view %}
+                {% with display_user=viewed_user %}
+            {% else %}
+                {% with display_user=user %}
+            {% endif %}
+            
             {# VERIFICATION STATUS BANNER FOR EMPLOYERS #}
-            {% if user.user_type == 'EMPLOYER' and not user.is_verified_employer %}
+            {% if display_user.user_type == 'EMPLOYER' and not display_user.is_verified_employer %}
             <div class="alert alert-warning border-warning mb-4">
                 <div class="d-flex align-items-center">
                     <i class="fas fa-shield-alt fa-2x me-3"></i>
@@ -27,7 +34,7 @@
             {% endif %}
             
             {# PROFILE COMPLETION WARNING #}
-            {% if completion_percentage < 50 %}
+            {% if completion_percentage < 50 and not is_admin_view %}
             <div class="alert alert-info border-info mb-4">
                 <div class="d-flex align-items-center">
                     <i class="fas fa-user-edit fa-2x me-3"></i>
@@ -49,20 +56,19 @@
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">
-                            <i class="fas fa-user-circle"></i> My Profile
+                            <i class="fas fa-user-circle"></i> {% if is_admin_view %}Applicant Profile{% else %}My Profile{% endif %}
                         </h4>
                         <div>
-                            {% if user.user_type == 'EMPLOYER' and user.is_verified_employer %}
+                            {% if display_user.user_type == 'EMPLOYER' and display_user.is_verified_employer %}
                             <span class="badge bg-success">
                                 <i class="fas fa-check-circle"></i> Verified Employer
                             </span>
-                            {% elif user.user_type == 'ADMIN' %}
+                            {% elif display_user.user_type == 'ADMIN' %}
                             <span class="badge bg-danger">
                                 <i class="fas fa-crown"></i> Administrator
                             </span>
                             {% endif %}
                         </div>
-                    </div>
                 </div>
                 <div class="card-body">
                     <!-- Profile Header -->
@@ -77,13 +83,13 @@
                             {% endif %}
                             
                             <div class="mt-2">
-                                <span class="badge bg-secondary">{{ user.display_user_type|default:user.user_type }}</span>
+                                <span class="badge bg-secondary">{{ display_user.display_user_type|default:display_user.user_type }}</span>
                             </div>
                         </div>
                         <div class="col-md-9">
-                            <h3>{{ user.get_full_name|default:user.email }}</h3>
+                            <h3>{{ display_user.get_full_name|default:display_user.email }}</h3>
                             <p class="text-muted mb-2">
-                                <i class="fas fa-envelope me-2"></i>{{ user.email }}
+                                <i class="fas fa-envelope me-2"></i>{{ display_user.email }}
                             </p>
                             
                             <div class="mb-2">
@@ -99,11 +105,11 @@
                             <div class="row mt-3">
                                 <div class="col-sm-4">
                                     <small class="text-muted">Member Since</small>
-                                    <p class="mb-0">{{ user.date_joined|date:"M d, Y" }}</p>
+                                    <p class="mb-0">{{ display_user.date_joined|date:"M d, Y" }}</p>
                                 </div>
                                 <div class="col-sm-4">
                                     <small class="text-muted">Last Active</small>
-                                    <p class="mb-0">{{ user.last_activity|date:"M d, Y" }}</p>
+                                    <p class="mb-0">{{ display_user.last_activity|date:"M d, Y" }}</p>
                                 </div>
                               
                             </div>
@@ -115,7 +121,7 @@
                     {# ============================================ #}
                     {# JOB SEEKER PROFILE SECTION                   #}
                     {# ============================================ #}
-                    {% if user.user_type == 'JOB_SEEKER' and not user.is_staff %}
+                    {% if display_user.user_type == 'JOB_SEEKER' and not display_user.is_staff %}
                     <div class="row">
                         <div class="col-md-6">
                             <div class="card h-100 border-0 bg-light">
@@ -210,7 +216,7 @@
                     {# ============================================ #}
                     {# EMPLOYER PROFILE SECTION                    #}
                     {# ============================================ #}
-                    {% if user.user_type == 'EMPLOYER' and not user.is_staff %}
+                    {% if display_user.user_type == 'EMPLOYER' and not display_user.is_staff %}
                     <div class="row">
                         <div class="col-md-6">
                             <div class="card h-100 border-0 bg-light">

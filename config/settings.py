@@ -249,16 +249,17 @@ LOGS_DIR.mkdir(exist_ok=True)
 # ============================================
 # DJANGO DEBUG TOOLBAR
 # ============================================
-if DEBUG:
-    INTERNAL_IPS = [
-        '127.0.0.1',
-        'localhost',
-    ]
+
+# if DEBUG:
+#     INTERNAL_IPS = [
+#         '127.0.0.1',
+#         'localhost',
+#     ]
     
-    # This allows the toolbar to work in Docker/VM environments
-    import socket
-    hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
-    INTERNAL_IPS += [ip[: ip.rfind(".")] + ".1" for ip in ips]
+    # # This allows the toolbar to work in Docker/VM environments
+    # import socket
+    # hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+    # INTERNAL_IPS += [ip[: ip.rfind(".")] + ".1" for ip in ips]
 
 
 

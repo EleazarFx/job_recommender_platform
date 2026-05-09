@@ -108,7 +108,7 @@
             {% for saved in saved_jobs %}
             <div class="col-md-6 mb-3 saved-job-item" 
                  data-active="{{ saved.job.is_approved|yesno:'true,false' }}"
-                 data-expiring="{% if saved.job.expiry_date|timeuntil:7 %}true{% else %}false{% endif %}"
+                 data-expiring="{{ saved.job.is_expiring_soon|yesno:'true,false' }}"
                  data-applied="false"
                  data-date="{{ saved.saved_at|date:'Y-m-d H:i:s' }}"
                  data-expiry="{{ saved.job.expiry_date|date:'Y-m-d' }}"
@@ -170,7 +170,7 @@
                                 <span class="badge bg-secondary">Expired</span>
                                 {% elif not saved.job.is_approved %}
                                 <span class="badge bg-warning text-dark">Pending</span>
-                                {% elif saved.job.expiry_date|timeuntil:7 %}
+                                {% elif saved.job.is_expiring_soon %}
                                 <span class="badge bg-warning text-dark">
                                     <i class="fas fa-hourglass-half"></i> Expires soon
                                 </span>
@@ -183,10 +183,8 @@
                         <!-- Expiry Progress Bar -->
                         {% if saved.job.is_approved and not saved.job.is_expired %}
                         <div class="progress mt-2" style="height: 4px;">
-                            {% with days_left=saved.job.expiry_date|timeuntil %}
                             <div class="progress-bar bg-success" 
-                                 style="width: {% widthratio saved.job.expiry_date|timeuntil 30 100 %}%"></div>
-                            {% endwith %}
+                                 style="width: {% widthratio saved.job.days_until_expiry 30 100 %}%"></div>
                         </div>
                         {% endif %}
                         

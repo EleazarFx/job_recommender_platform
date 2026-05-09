@@ -19,6 +19,7 @@ urlpatterns = [
     
     # Profile Management
     path('profile/setup/', views.ProfileSetupView.as_view(), name='profile_setup'),
+    path('profile/<int:user_id>/', views.user_profile_view, name='user_profile'),
     path('profile/', views.profile_view, name='profile'),
 
     # Password Management

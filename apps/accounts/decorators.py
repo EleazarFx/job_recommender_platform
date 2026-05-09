@@ -14,6 +14,7 @@ from functools import wraps
 def job_seeker_required(view_func):
     """
     Restrict access to job seekers only.
+    Staff/superusers bypass this restriction to allow system management.
     """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
@@ -22,7 +23,8 @@ def job_seeker_required(view_func):
                 return JsonResponse({'success': False, 'message': 'Authentication required.'}, status=401)
             return redirect_to_login(request.get_full_path(), login_url=reverse('accounts:login'))
 
-        if request.user.user_type == 'JOB_SEEKER':
+        # Allow job seekers, admins, and staff
+        if request.user.user_type == 'JOB_SEEKER' or request.user.is_staff or request.user.is_superuser:
             return view_func(request, *args, **kwargs)
 
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

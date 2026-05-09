@@ -301,6 +301,19 @@ class JobVacancy(models.Model):
         """Check if job has expired."""
         return self.expiry_date < timezone.now().date()
     
+    def is_expiring_soon(self, days=7):
+        """Check if job is expiring within the specified number of days."""
+        if self.is_expired():
+            return False
+        days_until_expiry = (self.expiry_date - timezone.now().date()).days
+        return 0 < days_until_expiry <= days
+    
+    def days_until_expiry(self):
+        """Get the number of days until the job expires."""
+        if self.is_expired():
+            return 0
+        return (self.expiry_date - timezone.now().date()).days
+    
     def is_fresh(self):
         """Check if job is recent (posted within 7 days)."""
         days_since_posted = (timezone.now().date() - self.date_posted.date()).days

@@ -181,7 +181,11 @@
                                                    title="View">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                
+                                                <a href="{% url 'jobs:edit' job.pk %}" 
+                                                   class="btn btn-sm btn-outline-secondary" 
+                                                   title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
                                                 {% if job.is_approved and not job.is_expired %}
                                                 <button class="btn btn-sm btn-outline-success extend-job-btn" 
                                                         data-job-id="{{ job.pk }}"
@@ -285,6 +289,17 @@
 // ============================================
 let deleteJobId = null;
 
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+}
+
 document.querySelectorAll('.delete-job-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         deleteJobId = this.dataset.jobId;
@@ -299,14 +314,26 @@ document.querySelectorAll('.delete-job-btn').forEach(btn => {
 document.getElementById('confirmDeleteBtn')?.addEventListener('click', function() {
     if (!deleteJobId) return;
     
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) {
+        alert('Unable to securely submit delete request. Please refresh the page and try again.');
+        return;
+    }
+
     fetch(`/jobs/${deleteJobId}/delete/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-CSRFToken': csrfToken,
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => response.text().then(text => {
+        try {
+            return JSON.parse(text);
+        } catch (err) {
+            throw new Error(text || 'Server returned invalid JSON.');
+        }
+    }))
     .then(data => {
         if (data.success) {
             location.reload();
@@ -315,8 +342,8 @@ document.getElementById('confirmDeleteBtn')?.addEventListener('click', function(
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred. Please try again.');
+        console.error('Delete error:', error);
+        alert('Error: ' + error.message);
     });
 });
 
@@ -331,14 +358,26 @@ document.querySelectorAll('.extend-job-btn').forEach(btn => {
             return;
         }
         
+        const csrfToken = getCsrfToken();
+        if (!csrfToken) {
+            alert('Unable to securely submit extend request. Please refresh the page and try again.');
+            return;
+        }
+
         fetch(`/jobs/${jobId}/extend/`, {
             method: 'POST',
             headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => response.text().then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (err) {
+                throw new Error(text || 'Server returned invalid JSON.');
+            }
+        }))
         .then(data => {
             if (data.success) {
                 alert('Job extended successfully! New expiry: ' + data.new_expiry);
@@ -348,8 +387,8 @@ document.querySelectorAll('.extend-job-btn').forEach(btn => {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            console.error('Extend error:', error);
+            alert('Error: ' + error.message);
         });
     });
 });

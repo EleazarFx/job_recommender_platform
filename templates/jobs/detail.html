@@ -142,6 +142,11 @@
                                 </button>
                                 <ul class="dropdown-menu">
                                     <li>
+                                        <a class="dropdown-item" href="{% url 'jobs:edit' job.pk %}">
+                                            <i class="fas fa-edit"></i> Edit Job
+                                        </a>
+                                    </li>
+                                    <li>
                                         <a class="dropdown-item" href="#" onclick="extendJob(); return false;">
                                             <i class="fas fa-calendar-plus"></i> Extend Expiry (30 days)
                                         </a>
@@ -477,7 +482,14 @@ function extendJob() {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => response.text().then(text => {
+        try {
+            return JSON.parse(text);
+        } catch (err) {
+            console.error('Server response:', text.substring(0, 500));
+            throw new Error(text.includes('<') ? 'Server error: Invalid response format. Check console.' : text);
+        }
+    }))
     .then(data => {
         if (data.success) {
             alert('Job extended successfully! New expiry: ' + data.new_expiry);
@@ -485,6 +497,10 @@ function extendJob() {
         } else {
             alert(data.message || 'Error extending job');
         }
+    })
+    .catch(error => {
+        console.error('Extend error:', error);
+        alert('Error: ' + error.message);
     });
 }
 
@@ -501,13 +517,24 @@ document.getElementById('confirmDeleteBtn')?.addEventListener('click', function(
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => response.text().then(text => {
+        try {
+            return JSON.parse(text);
+        } catch (err) {
+            console.error('Server response:', text.substring(0, 500));
+            throw new Error(text.includes('<') ? 'Server error: Invalid response format. Check console.' : text);
+        }
+    }))
     .then(data => {
         if (data.success) {
             window.location.href = '{% url "jobs:my_jobs" %}';
         } else {
             alert(data.message || 'Error deleting job');
         }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        alert('Error: ' + error.message);
     });
 });
 

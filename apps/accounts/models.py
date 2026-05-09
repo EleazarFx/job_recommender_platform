@@ -116,6 +116,12 @@ class User(AbstractUser):
         """Treat any administrator account as admin, whether by role or staff status."""
         return self.is_superuser or self.is_staff or self.user_type == 'ADMIN'
     
+    def save(self, *args, **kwargs):
+        """Keep role fields consistent for superusers/staff users."""
+        if self.is_superuser or self.is_staff:
+            self.user_type = 'ADMIN'
+        super().save(*args, **kwargs)
+    
     def get_full_name(self):
         """Return full name or email if name not set."""
         if self.first_name and self.last_name:

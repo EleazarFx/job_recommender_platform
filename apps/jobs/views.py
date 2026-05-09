@@ -418,9 +418,42 @@ def post_job(request):
     context = {
         'form': form,
         'is_verified': request.user.is_verified_employer,
+        'editing': False,
     }
     
-    return render(request, 'jobs/post_job.html', context)
+    return render(request, 'jobs/employer_post_job.html', context)
+
+
+@employer_required
+def edit_job(request, pk):
+    """
+    Allow employers to edit their own job postings.
+    Access: Job Owner OR Staff/Admin
+    """
+    job = get_object_or_404(JobVacancy, pk=pk)
+    if job.posted_by != request.user and not request.user.is_staff:
+        messages.error(request, 'You do not have permission to edit this job.')
+        return redirect('jobs:my_jobs')
+
+    if request.method == 'POST':
+        form = JobPostForm(request.POST, instance=job)
+        if form.is_valid():
+            edited_job = form.save(commit=False)
+            edited_job.posted_by = job.posted_by
+            edited_job.save()
+            messages.success(request, 'Job updated successfully.')
+            return redirect('jobs:my_jobs')
+    else:
+        form = JobPostForm(instance=job)
+
+    context = {
+        'form': form,
+        'is_verified': request.user.is_verified_employer,
+        'editing': True,
+        'job': job,
+    }
+
+    return render(request, 'jobs/employer_post_job.html', context)
 
 
 @employer_required
@@ -486,21 +519,29 @@ def delete_job(request, pk):
     Delete a job.
     Access: Job Owner OR Staff/Admin
     """
-    job = get_object_or_404(JobVacancy, pk=pk)
-    
-    # Permission check
-    if job.posted_by != request.user and not request.user.is_staff:
+    try:
+        job = get_object_or_404(JobVacancy, pk=pk)
+        
+        # Permission check
+        if job.posted_by != request.user and not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': 'You do not have permission to delete this job.'
+            }, status=403)
+        
+        title = job.title
+        job.delete()
+        
+        messages.success(request, f'Job "{title}" has been deleted.')
+        
+        return JsonResponse({'success': True})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
-            'message': 'You do not have permission to delete this job.'
-        })
-    
-    title = job.title
-    job.delete()
-    
-    messages.success(request, f'Job "{title}" has been deleted.')
-    
-    return JsonResponse({'success': True})
+            'message': f'Error deleting job: {str(e)}'
+        }, status=500)
 
 
 @login_required
@@ -510,19 +551,30 @@ def extend_job(request, pk):
     Extend job expiry date by 30 days.
     Access: Job Owner OR Staff/Admin
     """
-    job = get_object_or_404(JobVacancy, pk=pk)
-    
-    # Permission check
-    if job.posted_by != request.user and not request.user.is_staff:
+    try:
+        job = get_object_or_404(JobVacancy, pk=pk)
+        
+        # Permission check
+        if job.posted_by != request.user and not request.user.is_staff:
+            return JsonResponse({
+                'success': False,
+                'message': 'You do not have permission to extend this job.'
+            }, status=403)
+        
+        job.expiry_date = timezone.now().date() + timezone.timedelta(days=30)
+        job.save(update_fields=['expiry_date'])
+        
+        messages.success(request, f'Job expiry date extended to {job.expiry_date}')
+        
+        return JsonResponse({'success': True, 'new_expiry': job.expiry_date.isoformat()})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
-            'message': 'You do not have permission to extend this job.'
-        })
-    
-    job.expiry_date = timezone.now().date() + timezone.timedelta(days=30)
-    job.save(update_fields=['expiry_date'])
-    
-    messages.success(request, f'Job expiry date extended to {job.expiry_date}')
+            'message': f'Error extending job: {str(e)}'
+        }, status=500)
+
     
     return JsonResponse({'success': True, 'new_expiry': job.expiry_date.isoformat()})
 

@@ -1,0 +1,81 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{% if editing %}Edit Job{% else %}Post a Job{% endif %} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-edit"></i>
+                        {% if editing %}Edit Job{% else %}Post a New Job{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if not is_verified %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Your job will be submitted for review and published once approved. Verified employers receive auto-approved postings.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        Your job will be posted immediately with verified employer status.
+                    </div>
+                    {% endif %}
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                        {% endif %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-warning">
+                            <strong>There are validation errors in your submission.</strong>
+                            Please fix the highlighted fields below.
+                        </div>
+                        {% endif %}
+
+                        {% for field in form %}
+                        <div class="mb-3">
+                            <label for="{{ field.id_for_label }}" class="form-label">
+                                {{ field.label }}{% if field.field.required %} *{% endif %}
+                            </label>
+                            {{ field }}
+                            {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            {% if field.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ field.errors|join:", " }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i> Please provide at least one application method: URL or email.
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{% url 'jobs:my_jobs' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back to My Jobs
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-paper-plane"></i> {% if editing %}Update Job{% else %}Post Job{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

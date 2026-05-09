@@ -3,7 +3,7 @@ Authentication views with Email OTP reset functionality.
 Simplified - No email verification on registration.
 """
 import socket
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -384,6 +384,67 @@ def profile_view(request):
     if user_type in ['EMPLOYER', 'ADMIN']:
         context.update({
             'is_verified': request.user.is_verified_employer,
+        })
+    
+    return render(request, 'accounts/profile.html', context)
+
+
+@login_required
+def user_profile_view(request, user_id):
+    """
+    View a specific user's profile.
+    Access: 
+    - Admin/Superuser can view any profile
+    - Users can view their own profile
+    - Employers can view applicant profiles for their jobs
+    """
+    user = get_object_or_404(User, pk=user_id)
+    
+    # Allow viewing own profile
+    if request.user.id == user.id:
+        pass  # Allow
+    # Allow admins to view any profile
+    elif request.user.is_superuser:
+        pass  # Allow
+    # Allow employers to view applicant profiles
+    elif request.user.user_type == 'EMPLOYER':
+        from apps.interactions.models import JobApplication
+        # Check if the viewed user has applied to any of the employer's jobs
+        has_applied = JobApplication.objects.filter(
+            job__posted_by=request.user,
+            applicant=user
+        ).exists()
+        if not has_applied:
+            messages.error(request, 'You do not have permission to view this profile.')
+            return redirect('core:home')
+    else:
+        messages.error(request, 'You do not have permission to view this profile.')
+        return redirect('core:home')
+    
+    profile = user.profile
+    completion_percentage = user.profile_completion_percentage
+    user_type = user.user_type
+    
+    # Role-specific context
+    context = {
+        'profile': profile,
+        'viewed_user': user,
+        'completion_percentage': completion_percentage,
+        'user_type': user_type,
+        'is_admin_view': request.user.is_superuser or request.user.user_type == 'EMPLOYER',
+    }
+    
+    # JobSeeker-specific fields
+    if user_type == 'JOB_SEEKER':
+        context.update({
+            'skills_list': profile.get_skills_list(),
+            'locations_list': profile.get_preferred_locations_list(),
+        })
+    
+    # Employer-specific fields
+    if user_type in ['EMPLOYER', 'ADMIN']:
+        context.update({
+            'is_verified': user.is_verified_employer,
         })
     
     return render(request, 'accounts/profile.html', context)
