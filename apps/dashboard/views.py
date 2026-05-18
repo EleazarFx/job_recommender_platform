@@ -212,7 +212,10 @@ def upload_csv(request):
         ingestion_job.status = IngestionJob.Status.PENDING
         ingestion_job.save()
         
-        column_mapping = json.loads(form.cleaned_data['column_mapping'])
+        #Get column mapping - handle both string and dict
+        column_mapping = form.cleaned_data['column_mapping']
+        if isinstance(column_mapping, str):
+            column_mapping = json.loads(column_mapping)
         
         process_csv_upload(
             ingestion_job.id,

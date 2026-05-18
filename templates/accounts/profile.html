@@ -9,12 +9,7 @@
         <div class="col-lg-10 mx-auto">
             
             {# Determine which user object to display #}
-            {% if is_admin_view %}
-                {% with display_user=viewed_user %}
-            {% else %}
-                {% with display_user=user %}
-            {% endif %}
-            
+            {% with display_user=viewed_user|default:user %}
             {# VERIFICATION STATUS BANNER FOR EMPLOYERS #}
             {% if display_user.user_type == 'EMPLOYER' and not display_user.is_verified_employer %}
             <div class="alert alert-warning border-warning mb-4">
@@ -297,7 +292,7 @@
                     {# ============================================ #}
                     {# ADMIN PROFILE SECTION                       #}
                     {# ============================================ #}
-                    {% if user.user_type == 'ADMIN' or user.is_staff %}
+                    {% if display_user.user_type == 'ADMIN' or display_user.is_staff %}
                     <div class="row">
                         <div class="col-12">
                             <div class="alert alert-secondary">
@@ -312,11 +307,14 @@
                     
                     <!-- Action Buttons -->
                     <div class="text-center">
+                        {% if can_edit %}
                         <a href="{% url 'accounts:profile_setup' %}" class="btn btn-primary">
                             <i class="fas fa-edit"></i> Edit Profile
                         </a>
+                        {% endif %}
                         
-                        {% if user.user_type == 'JOB_SEEKER' and not user.is_staff %}
+                        {% if display_user.user_type == 'JOB_SEEKER' and not display_user.is_staff %}
+
                         <a href="{% url 'recommendations:recommended' %}" class="btn btn-success">
                             <i class="fas fa-robot"></i> View Recommendations
                         </a>
@@ -325,7 +323,7 @@
                         </a>
                         {% endif %}
                         
-                        {% if user.user_type == 'EMPLOYER' and not user.is_staff %}
+                        {% if display_user.user_type == 'EMPLOYER' and not display_user.is_staff %}
                         <a href="{% url 'jobs:post' %}" class="btn btn-success">
                             <i class="fas fa-plus-circle"></i> Post a Job
                         </a>
@@ -348,7 +346,7 @@
             </div>
             
             {# JOB SEEKER: Skill Gap Insights #}
-            {% if user.user_type == 'JOB_SEEKER' %}
+            {% if display_user.user_type == 'JOB_SEEKER' %}
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
@@ -371,7 +369,7 @@
             {% endif %}
             
             {# EMPLOYER: Recent Activity #}
-            {% if user.user_type == 'EMPLOYER' %}
+            {% if display_user.user_type == 'EMPLOYER' %}
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">
@@ -391,7 +389,7 @@
             {% endif %}
             
             {# JOB SEEKER: Recent Applications #}
-            {% if user.user_type == 'JOB_SEEKER' %}
+            {% if display_user.user_type == 'JOB_SEEKER' %}
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
@@ -416,6 +414,7 @@
         </div>
     </div>
 </div>
+{% endwith %}
 {% endblock %}
 
 {% block extra_js %}
@@ -424,7 +423,7 @@
 // LOAD ROLE-SPECIFIC DATA
 // ============================================
 
-{% if user.user_type == 'JOB_SEEKER' %}
+{% if display_user.user_type == 'JOB_SEEKER' %}
 // Load job seeker stats
 function loadJobSeekerStats() {
     fetch('/api/profile/stats/')
@@ -490,7 +489,7 @@ function loadJobSeekerStats() {
 document.addEventListener('DOMContentLoaded', loadJobSeekerStats);
 {% endif %}
 
-{% if user.user_type == 'EMPLOYER' %}
+{% if display_user.user_type == 'EMPLOYER' %}
 // Load employer stats
 function loadEmployerStats() {
     fetch('/api/employer/stats/')

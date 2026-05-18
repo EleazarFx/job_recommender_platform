@@ -1,0 +1,11 @@
+title,company_name,location,required_skills,job_type,experience_level,description,expiry_date,application_url
+Python Developer,Tech Malawi Ltd,Lilongwe,"Python, Django, PostgreSQL, AWS",FT,MID,We are looking for a skilled Python developer to build and maintain web applications using Django framework,2025-12-31,https://example.com/apply
+Frontend Developer,Web Solutions Malawi,Blantyre,"JavaScript, React, CSS, HTML, Git",FT,JUNIOR,Frontend developer needed to create responsive web interfaces for our clients,2025-11-30,https://example.com/apply
+Data Analyst,Data Insights Ltd,Lilongwe,"SQL, Python, Excel, Power BI, Tableau",FT,ENTRY,Entry level data analyst to help with data visualization and reporting,2025-10-15,https://example.com/apply
+Project Manager,Management Solutions,Mzuzu,"Project Management, Agile, Scrum, Leadership",FT,SENIOR,Experienced project manager to lead software development projects,2025-09-30,https://example.com/apply
+UI/UX Designer,Creative Studio,Remote,"Figma, Adobe XD, User Research, Prototyping",CT,MID,Remote UI/UX designer to create beautiful interfaces for web and mobile apps,2025-08-15,https://example.com/apply
+DevOps Engineer,Cloud Tech Malawi,Lilongwe,"Docker, Kubernetes, AWS, CI/CD, Linux",FT,MID,DevOps engineer to manage cloud infrastructure and deployment pipelines,2025-07-30,https://example.com/apply
+Mobile Developer,App Factory,Blantyre,"Flutter, Dart, Firebase, iOS, Android",FT,JUNIOR,Mobile app developer to build cross-platform applications,2025-06-15,https://example.com/apply
+Network Administrator,IT Solutions Ltd,Zomba,"Cisco, Networking, Security, Windows Server",FT,MID,Network administrator to manage and secure our IT infrastructure,2025-05-30,https://example.com/apply
+Content Writer,Digital Marketing Pro,Remote,"Content Writing, SEO, Social Media, WordPress",PT,ENTRY,Part-time content writer for digital marketing campaigns,2025-04-15,https://example.com/apply
+Accountant,Finance Solutions,Lilongwe,"Accounting, QuickBooks, Excel, Tax Preparation",FT,MID,Accountant to handle financial records and tax filings,2025-03-30,https://example.com/apply

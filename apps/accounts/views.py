@@ -426,13 +426,17 @@ def user_profile_view(request, user_id):
     user_type = user.user_type
     
     # Role-specific context
+    can_edit = request.user.id == user.id
+
     context = {
         'profile': profile,
         'viewed_user': user,
         'completion_percentage': completion_percentage,
         'user_type': user_type,
         'is_admin_view': request.user.is_superuser or request.user.user_type == 'EMPLOYER',
+        'can_edit': can_edit,
     }
+
     
     # JobSeeker-specific fields
     if user_type == 'JOB_SEEKER':
