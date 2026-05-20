@@ -94,25 +94,32 @@ def process_csv_upload(ingestion_job_id, column_mapping, trust_score=95, auto_ap
 
 def prepare_job_data(row, trust_score, auto_approve):
     """
-    Prepare job data from CSV row.
-    Handles data cleaning and normalization.
+    Prepare job data from CSV/API row.
+    Only includes fields that have actual data - no fake defaults.
     """
-    # Parse expiry date
-    expiry_date = row.get('expiry_date')
-    if pd.isna(expiry_date) or not expiry_date:
+    # Parse expiry date - this is the ONLY safe default
+    expiry_date = None
+    raw_expiry = row.get('expiry_date')
+    if raw_expiry and not pd.isna(raw_expiry):
+        if isinstance(raw_expiry, str):
+            try:
+                expiry_date = pd.to_datetime(raw_expiry).date()
+            except:
+                pass
+        else:
+            expiry_date = raw_expiry
+    
+    if not expiry_date:
         expiry_date = timezone.now().date() + timezone.timedelta(days=30)
-    elif isinstance(expiry_date, str):
-        try:
-            expiry_date = pd.to_datetime(expiry_date).date()
-        except:
-            expiry_date = timezone.now().date() + timezone.timedelta(days=30)
     
     # Clean skills
     skills = row.get('required_skills', '')
     if pd.isna(skills):
         skills = ''
+    else:
+        skills = str(skills).strip()
     
-    # Map job type
+    # Map job type - ONLY if provided
     job_type_map = {
         'full time': 'FT', 'full-time': 'FT', 'permanent': 'FT',
         'part time': 'PT', 'part-time': 'PT',
@@ -123,34 +130,119 @@ def prepare_job_data(row, trust_score, auto_approve):
         'freelance': 'FL'
     }
     
+    job_type = None
     job_type_str = str(row.get('job_type', '')).lower().strip()
-    job_type = job_type_map.get(job_type_str, 'FT')
+    if job_type_str:
+        job_type = job_type_map.get(job_type_str)
     
-    # Map experience level
+    # Map experience level - ONLY if provided
     exp_map = {
         'entry': 'ENTRY', 'junior': 'JUNIOR', 'mid': 'MID',
         'senior': 'SENIOR', 'lead': 'LEAD'
     }
-    exp_str = str(row.get('experience_level', '')).lower().strip()
-    experience_level = exp_map.get(exp_str, 'ENTRY')
     
-    return {
-        'title': str(row.get('title', 'Untitled Position')),
-        'company_name': str(row.get('company_name', 'Unknown Company')),
-        'description': str(row.get('description', '')),
+    experience_level = None
+    exp_str = str(row.get('experience_level', '')).lower().strip()
+    if exp_str:
+        experience_level = exp_map.get(exp_str)
+    
+    # Location - only take what's provided
+    city = str(row.get('city', '')).strip()
+    location_display = str(row.get('location_display', '')).strip()
+    
+    # If no city but has location, use location as city
+    if not city:
+        loc = str(row.get('location', '')).strip()
+        if loc:
+            city = loc
+    
+    # If no location_display but has city, use city
+    if not location_display and city:
+        location_display = city
+    
+    # Build the base job data
+    job_data = {
+        'title': str(row.get('title', 'Untitled Position')).strip(),
+        'company_name': str(row.get('company_name', 'Unknown Company')).strip(),
+        'description': str(row.get('description', '')).strip(),
         'required_skills': skills,
-        'experience_level': experience_level,
-        'job_type': job_type,
-        'city': str(row.get('city', row.get('location', ''))),
-        'location_display': str(row.get('location_display', row.get('location', ''))),
         'expiry_date': expiry_date,
         'source_type': JobVacancy.SourceType.ADMIN_CSV,
         'trust_score': trust_score,
         'is_approved': auto_approve,
-        'application_url': str(row.get('application_url', '')) if not pd.isna(row.get('application_url')) else None,
-        'application_email': str(row.get('application_email', '')) if not pd.isna(row.get('application_email')) else None,
-        'years_of_experience_required': int(row.get('years_of_experience_required', 0)) if not pd.isna(row.get('years_of_experience_required', 0)) else 0,
     }
+    
+    # Only add optional fields if they have actual values
+    if job_type:
+        job_data['job_type'] = job_type
+    
+    if experience_level:
+        job_data['experience_level'] = experience_level
+    
+    if city:
+        job_data['city'] = city
+    
+    if location_display:
+        job_data['location_display'] = location_display
+    
+    # Application URL - only if valid
+    app_url = row.get('application_url')
+    if app_url and not pd.isna(app_url):
+        app_url_str = str(app_url).strip()
+        if app_url_str and app_url_str.startswith('http'):
+            job_data['application_url'] = app_url_str
+    
+    # Application Email - only if valid
+    app_email = row.get('application_email')
+    if app_email and not pd.isna(app_email):
+        app_email_str = str(app_email).strip()
+        if app_email_str and '@' in app_email_str:
+            job_data['application_email'] = app_email_str
+    
+    # Years of experience - only if provided and positive
+    years_exp = row.get('years_of_experience_required', 0)
+    if years_exp and not pd.isna(years_exp):
+        try:
+            years_int = int(years_exp)
+            if years_int > 0:
+                job_data['years_of_experience_required'] = years_int
+        except (ValueError, TypeError):
+            pass
+    
+    # Required qualifications - only if provided
+    qualifications = row.get('required_qualifications', '')
+    if qualifications and not pd.isna(qualifications):
+        qual_str = str(qualifications).strip()
+        if qual_str:
+            job_data['required_qualifications'] = qual_str
+    
+    # Requirements and responsibilities
+    requirements = row.get('requirements', '')
+    if requirements and not pd.isna(requirements):
+        req_str = str(requirements).strip()
+        if req_str:
+            job_data['requirements'] = req_str
+    
+    responsibilities = row.get('responsibilities', '')
+    if responsibilities and not pd.isna(responsibilities):
+        resp_str = str(responsibilities).strip()
+        if resp_str:
+            job_data['responsibilities'] = resp_str
+    
+    # Remote flag
+    is_remote = row.get('is_remote', False)
+    if is_remote and not pd.isna(is_remote):
+        if str(is_remote).lower() in ['true', 'yes', '1', 'remote']:
+            job_data['is_remote'] = True
+    
+    # Company website
+    company_website = row.get('company_website', '')
+    if company_website and not pd.isna(company_website):
+        web_str = str(company_website).strip()
+        if web_str and web_str.startswith('http'):
+            job_data['company_website'] = web_str
+    
+    return job_data
 
 
 def check_duplicate_job(job_data):
@@ -240,6 +332,12 @@ def fetch_api_data(data_source_id):
         for item in items:
             try:
                 job_data = parse_api_item(item, data_source.field_mapping)
+                
+                # Skip if no title or company - essential fields
+                if not job_data.get('title') or not job_data.get('company_name'):
+                    ingestion_job.failed_records += 1
+                    continue
+                
                 job_data['source_type'] = JobVacancy.SourceType.ADMIN_API
                 job_data['trust_score'] = data_source.default_trust_score
                 job_data['is_approved'] = data_source.auto_approve
@@ -248,7 +346,7 @@ def fetch_api_data(data_source_id):
                 if not check_duplicate_job(job_data):
                     JobVacancy.objects.create(**job_data)
                     jobs_created += 1
-                    
+            
             except Exception as e:
                 ingestion_job.failed_records += 1
         
@@ -275,11 +373,139 @@ def fetch_api_data(data_source_id):
 
 
 def parse_api_item(item, field_mapping):
-    """Parse API response item based on field mapping."""
+    """
+    Parse API response item based on field mapping.
+    Only includes fields that the API actually provides with real values.
+    """
     job_data = {}
-    
+
+    # --- Normalizers / sanitizers to prevent misleading injected tokens ---
+    valid_job_type_codes = {'FT', 'PT', 'CT', 'IN', 'RM', 'HY', 'FL'}
+    valid_experience_level_codes = {'ENTRY', 'JUNIOR', 'MID', 'SENIOR', 'LEAD'}
+
+    job_type_labels = {
+        'full time', 'part time', 'contract', 'internship', 'remote', 'work from home', 'hybrid', 'freelance',
+        'full-time', 'part-time'
+    }
+
+    def _clean_str(v):
+        return str(v).strip()
+
+    def normalize_job_type(raw):
+        """
+        Accept only job_type enum codes (FT/PT/CT/IN/RM/HY/FL).
+        Ignore misleading labels like 'Full Time'.
+        """
+        s = _clean_str(raw)
+        if not s:
+            return None
+
+        code = s.upper()
+        if code in valid_job_type_codes:
+            return code
+
+        # Incoming might be a label; do not coerce to code to avoid wrong mappings.
+        # (If admins want coercion, they can map API field directly to the enum codes.)
+        if s.lower().strip() in job_type_labels:
+            return None
+
+        return None
+
+    def normalize_experience_level(raw):
+        """
+        Accept only experience_level enum codes (ENTRY/JUNIOR/MID/SENIOR/LEAD).
+        Ignore misleading labels like 'Experience(0 - 2 yrs)'.
+        """
+        s = _clean_str(raw)
+        if not s:
+            return None
+
+        code = s.upper()
+        if code in valid_experience_level_codes:
+            return code
+
+        # Common injected patterns, including: Experience(0 - 2 yrs)
+        s_l = s.lower().replace(' ', '')
+        if s_l.startswith('experience(') and 'yrs' in s_l:
+            return None
+
+        # Also ignore if it contains known range markers
+        if '0-2' in s_l and 'yrs' in s_l:
+            return None
+
+        return None
+
+    def normalize_country(raw):
+        """
+        Country is only allowed to be 'Malawi'. Anything else is ignored.
+        """
+        s = _clean_str(raw)
+        if not s:
+            return None
+        if s.lower() == 'malawi':
+            return 'Malawi'
+        return None
+
+    def normalize_city_or_district(raw):
+        """
+        City/district must not be polluted by job-type labels or experience range labels.
+        Returns cleaned city/district string or None to ignore.
+        """
+        s = _clean_str(raw)
+        if not s:
+            return None
+
+        s_norm = s.replace('\n', ' ').strip()
+        s_lower = s_norm.lower().strip()
+
+        # Hard ignore obvious injected labels
+        if s_lower in job_type_labels:
+            return None
+
+        if s_lower.startswith('experience(') and 'yrs' in s_lower:
+            return None
+
+        if 'experience' in s_lower and 'yrs' in s_lower:
+            return None
+
+        # Guard against concatenated location strings (e.g., "USA, Malawi") being injected into city
+        # Keep city text only if it's reasonably short and doesn't look like "Country, Malawi" injection.
+        if len(s_norm) > 100:
+            return None
+
+        # If contains a clear country delimiter pattern and includes "Malawi", ignore.
+        if ',' in s_norm and 'malawi' in s_lower:
+            # If admins truly want "Lilongwe, Malawi", they should put it into location_display and/or city+country correctly.
+            return None
+
+        return s_norm
+
+    def normalize_location_display(raw):
+        """
+        location_display should not contain injected job-type/experience labels.
+        If it looks polluted, ignore and let JobVacancy.save() rebuild it.
+        """
+        s = _clean_str(raw)
+        if not s:
+            return None
+
+        s_lower = s.lower().strip()
+
+        # Reject if it contains known injected tokens
+        if any(label in s_lower for label in job_type_labels):
+            return None
+        if 'experience(' in s_lower and 'yrs' in s_lower:
+            return None
+        if 'experience' in s_lower and 'yrs' in s_lower:
+            return None
+
+        # Keep it short enough for display; otherwise ignore.
+        if len(s) > 255:
+            return None
+
+        return s
+
     for source_path, target_field in field_mapping.items():
-        # Handle nested paths like "company.name"
         value = item
         for key in source_path.split('.'):
             if isinstance(value, dict):
@@ -287,12 +513,59 @@ def parse_api_item(item, field_mapping):
             else:
                 value = None
                 break
-        
-        if value is not None:
-            job_data[target_field] = value
-    
-    # Set defaults for missing fields
+
+        # Skip None, empty strings, empty lists, and "Any" values
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        if isinstance(value, list) and len(value) == 0:
+            continue
+        if str(value).strip() in ['Any', 'any', 'None', 'null', '']:
+            continue
+
+        # Handle tags/lists - convert to comma-separated string
+        if isinstance(value, list):
+            value = ', '.join([str(v) for v in value if str(v).strip()])
+
+        # Apply field-specific normalization to prevent misleading injected labels
+        if target_field == 'job_type':
+            cleaned = normalize_job_type(value)
+            if cleaned:
+                job_data[target_field] = cleaned
+            continue
+
+        if target_field == 'experience_level':
+            cleaned = normalize_experience_level(value)
+            if cleaned:
+                job_data[target_field] = cleaned
+            continue
+
+        if target_field == 'country':
+            cleaned = normalize_country(value)
+            if cleaned:
+                job_data[target_field] = cleaned
+            continue
+
+        if target_field in ('city', 'district'):
+            cleaned = normalize_city_or_district(value)
+            if cleaned:
+                job_data[target_field] = cleaned
+            continue
+
+        if target_field == 'location_display':
+            cleaned = normalize_location_display(value)
+            if cleaned:
+                job_data[target_field] = cleaned
+            continue
+
+        # Default behavior for all other fields
+        job_data[target_field] = value
+
+    # Only set expiry date - the ONLY safe default
     if 'expiry_date' not in job_data:
         job_data['expiry_date'] = timezone.now().date() + timezone.timedelta(days=30)
-    
+
+    # DO NOT set defaults for anything else
     return job_data
+

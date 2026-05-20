@@ -3,8 +3,247 @@
 {% block title %}Job Approval - {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Job Approval Queue</h1>
-    <div class="alert alert-info">No jobs pending approval.</div>
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="fas fa-check-circle text-primary"></i> Job Approval Queue
+            </h1>
+            <p class="text-muted mb-0">Review and approve pending job postings</p>
+        </div>
+        <div>
+            <span class="badge bg-warning text-dark p-2">
+                <i class="fas fa-clock"></i> {{ total_pending }} Pending
+            </span>
+        </div>
+    </div>
+
+    {% if page_obj %}
+        <!-- Bulk Actions -->
+        <div class="card mb-3">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center">
+                    <div class="form-check me-3">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label" for="selectAll">Select All</label>
+                    </div>
+                    <button class="btn btn-sm btn-success me-2" id="bulkApproveBtn">
+                        <i class="fas fa-check"></i> Bulk Approve
+                    </button>
+                    <button class="btn btn-sm btn-danger" id="bulkRejectBtn">
+                        <i class="fas fa-times"></i> Bulk Reject
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs List -->
+        {% for job in page_obj %}
+        <div class="card mb-3 job-card" data-job-id="{{ job.id }}">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-1">
+                        <input type="checkbox" class="form-check-input job-checkbox" value="{{ job.id }}">
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="card-title mb-1">
+                            <a href="{% url 'jobs:detail' job.pk %}" target="_blank">{{ job.title }}</a>
+                        </h5>
+                        <h6 class="card-subtitle text-muted mb-2">{{ job.company_name }}</h6>
+                        <div>
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-map-marker-alt"></i> {{ job.location_display|default:"Not specified" }}
+                            </span>
+                            <span class="badge bg-light text-dark me-1">
+                                <i class="fas fa-clock"></i> {{ job.get_job_type_display }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-chart-line"></i> {{ job.get_experience_level_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted">
+                            Posted by: {{ job.posted_by.email|default:"Admin" }}<br>
+                            Posted: {{ job.date_posted|date:"M d, Y" }}<br>
+                            Source: {{ job.get_source_type_display }}<br>
+                            Trust Score: {{ job.trust_score }}%
+                        </small>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-success btn-sm mb-1 w-100 approve-btn" data-job-id="{{ job.id }}">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-danger btn-sm w-100 reject-btn" data-job-id="{{ job.id }}">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                        <a href="{% url 'admin:jobs_jobvacancy_change' job.pk %}" class="btn btn-outline-secondary btn-sm w-100 mt-1" target="_blank">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Skills Preview -->
+                {% if job.required_skills %}
+                <div class="mt-2">
+                    {% for skill in job.get_skills_list|slice:":5" %}
+                    <span class="badge bg-secondary me-1">{{ skill }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <!-- Description Preview -->
+                <p class="mt-2 mb-0 text-muted small">{{ job.description|truncatechars:200 }}</p>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-check-circle fa-4x text-muted mb-3"></i>
+            <h3>No jobs pending approval</h3>
+            <p class="text-muted">All jobs have been reviewed. New job postings from unverified employers will appear here.</p>
+            <a href="{% url 'jobs:list' %}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Browse Live Jobs
+            </a>
+        </div>
+    {% endif %}
 </div>
+
+<script>
+// ============================================
+// SELECT ALL CHECKBOX
+// ============================================
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.job-checkbox').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+
+// ============================================
+// APPROVE SINGLE JOB
+// ============================================
+document.querySelectorAll('.approve-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        const card = this.closest('.job-card');
+        
+        if (!confirm('Approve this job?')) return;
+        
+        fetch(`/dashboard/jobs/${jobId}/approve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                card.remove();
+                location.reload();
+            }
+        });
+    });
+});
+
+// ============================================
+// REJECT SINGLE JOB
+// ============================================
+document.querySelectorAll('.reject-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const jobId = this.dataset.jobId;
+        const card = this.closest('.job-card');
+        
+        if (!confirm('Reject and delete this job? This cannot be undone.')) return;
+        
+        fetch(`/dashboard/jobs/${jobId}/reject/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                card.remove();
+                location.reload();
+            }
+        });
+    });
+});
+
+// ============================================
+// BULK APPROVE
+// ============================================
+document.getElementById('bulkApproveBtn').addEventListener('click', function() {
+    const selected = document.querySelectorAll('.job-checkbox:checked');
+    if (selected.length === 0) {
+        alert('Please select jobs to approve.');
+        return;
+    }
+    
+    if (!confirm(`Approve ${selected.length} job(s)?`)) return;
+    
+    const promises = Array.from(selected).map(cb => 
+        fetch(`/dashboard/jobs/${cb.value}/approve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+    );
+    
+    Promise.all(promises).then(() => location.reload());
+});
+
+// ============================================
+// BULK REJECT
+// ============================================
+document.getElementById('bulkRejectBtn').addEventListener('click', function() {
+    const selected = document.querySelectorAll('.job-checkbox:checked');
+    if (selected.length === 0) {
+        alert('Please select jobs to reject.');
+        return;
+    }
+    
+    if (!confirm(`Reject and delete ${selected.length} job(s)? This cannot be undone.`)) return;
+    
+    const promises = Array.from(selected).map(cb => 
+        fetch(`/dashboard/jobs/${cb.value}/reject/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+    );
+    
+    Promise.all(promises).then(() => location.reload());
+});
+</script>
 {% endblock %}

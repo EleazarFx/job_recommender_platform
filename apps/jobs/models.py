@@ -274,19 +274,28 @@ class JobVacancy(models.Model):
     
     def save(self, *args, **kwargs):
         """Auto-calculate fields before saving."""
-        # Set location display
+        # Only build location_display if not explicitly set
         if not self.location_display:
             parts = []
             if self.city:
                 parts.append(self.city)
             if self.district:
                 parts.append(self.district)
-            if self.country:
-                parts.append(self.country)
-            self.location_display = ', '.join(parts) if parts else 'Location Not Specified'
+
+            country = (self.country or '').strip()
+
+            # Guard against bad/injected country values like: "Keyword malawi ..."
+            # Only append country to the display if it looks like a real country we support.
+            valid_country = country.lower() == 'malawi'
+
+            # Only add country if it's relevant and not already in city, and it's valid
+            if valid_country and country not in (self.city or ''):
+                parts.append(country)
+
+            self.location_display = ', '.join(parts) if parts else ''
         
-        # Calculate trust score based on source
-        if not self.pk:  # Only on creation
+        # Calculate trust score only on creation
+        if not self.pk:
             trust_scores = {
                 self.SourceType.ADMIN_CSV: 95,
                 self.SourceType.ADMIN_API: 90,
@@ -294,6 +303,10 @@ class JobVacancy(models.Model):
                 self.SourceType.GENERAL_USER: 50,
             }
             self.trust_score = trust_scores.get(self.source_type, 50)
+        
+        # Ensure required_skills is never NULL
+        if not self.required_skills:
+            self.required_skills = ''
         
         super().save(*args, **kwargs)
     
