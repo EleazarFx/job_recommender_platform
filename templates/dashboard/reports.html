@@ -3,8 +3,210 @@
 {% block title %}Reports - {{ block.super }}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Job Reports</h1>
-    <div class="alert alert-info">No reports to review.</div>
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">
+                <i class="fas fa-flag text-danger"></i> Job Reports
+            </h1>
+            <p class="text-muted mb-0">Review and manage reported job postings</p>
+        </div>
+        <div>
+            <span class="badge bg-danger p-2">
+                <i class="fas fa-exclamation-triangle"></i> {{ total_reports }} Total
+            </span>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link {% if filter_status == 'pending' or not filter_status %}active{% endif %}" 
+               href="?status=pending">
+                <i class="fas fa-clock"></i> Pending
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if filter_status == 'reviewed' %}active{% endif %}" 
+               href="?status=reviewed">
+                <i class="fas fa-check-circle"></i> Reviewed
+            </a>
+        </li>
+    </ul>
+
+    {% if page_obj %}
+        <div class="row">
+            {% for report in page_obj %}
+            <div class="col-12 mb-3">
+                <div class="card {% if not report.reviewed %}border-danger{% else %}border-success{% endif %}">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-1 text-center">
+                                <i class="fas fa-flag fa-2x {% if not report.reviewed %}text-danger{% else %}text-success{% endif %}"></i>
+                                <br>
+                                <small class="text-muted">#{{ report.id }}</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h5 class="card-title mb-1">
+                                    <a href="{% url 'jobs:detail' report.job.pk %}" target="_blank">
+                                        {{ report.job.title }}
+                                    </a>
+                                </h5>
+                                <h6 class="card-subtitle text-muted mb-2">{{ report.job.company_name }}</h6>
+                                <p class="mb-1">
+                                    <strong>Reason:</strong> 
+                                    <span class="badge bg-warning text-dark">{{ report.get_reason_display }}</span>
+                                </p>
+                                {% if report.details %}
+                                <p class="mb-1"><strong>Details:</strong> {{ report.details }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted">
+                                    <strong>Reported by:</strong> {{ report.reported_by.email|default:"Anonymous" }}<br>
+                                    <strong>Date:</strong> {{ report.created_at|date:"M d, Y H:i" }}<br>
+                                    <strong>Report #:</strong> {{ report.report_count_at_time }}<br>
+                                </small>
+                            </div>
+                            <div class="col-md-2">
+                                {% if report.reviewed %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check"></i> Reviewed
+                                </span>
+                                <br>
+                                <small class="text-muted">
+                                    By: {{ report.reviewed_by.email|default:"Admin" }}<br>
+                                    {{ report.reviewed_at|date:"M d, Y" }}
+                                </small>
+                                {% else %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-clock"></i> Pending Review
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-2 text-end">
+                                {% if not report.reviewed %}
+                                <button class="btn btn-danger btn-sm mb-1 w-100 resolve-btn" 
+                                        data-report-id="{{ report.id }}" 
+                                        data-action="remove_job">
+                                    <i class="fas fa-trash"></i> Remove Job
+                                </button>
+                                <button class="btn btn-warning btn-sm w-100 resolve-btn" 
+                                        data-report-id="{{ report.id }}" 
+                                        data-action="flag_job">
+                                    <i class="fas fa-tag"></i> Flag Job
+                                </button>
+                                <button class="btn btn-success btn-sm w-100 mt-1 resolve-btn" 
+                                        data-report-id="{{ report.id }}" 
+                                        data-action="dismiss">
+                                    <i class="fas fa-check"></i> Dismiss Report
+                                </button>
+                                {% else %}
+                                <span class="text-muted">Resolved</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ filter_status }}">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&status={{ filter_status }}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ filter_status }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-check-circle fa-4x text-muted mb-3"></i>
+            <h3>No reports to review</h3>
+            <p class="text-muted">
+                {% if filter_status == 'reviewed' %}
+                No reviewed reports found.
+                {% else %}
+                All clear! No pending reports. Users can report suspicious jobs from the job detail page.
+                {% endif %}
+            </p>
+            <a href="{% url 'jobs:list' %}" class="btn btn-primary">
+                <i class="fas fa-search"></i> Browse Jobs
+            </a>
+        </div>
+    {% endif %}
 </div>
+
+<script>
+// ============================================
+// RESOLVE REPORTS
+// ============================================
+document.querySelectorAll('.resolve-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const reportId = this.dataset.reportId;
+        const action = this.dataset.action;
+        const card = this.closest('.col-12');
+        
+        let confirmMessage = '';
+        if (action === 'remove_job') {
+            confirmMessage = 'Delete this job permanently? This cannot be undone.';
+        } else if (action === 'flag_job') {
+            confirmMessage = 'Flag this job as suspicious? It will remain visible but marked.';
+        } else {
+            confirmMessage = 'Dismiss this report? No action will be taken.';
+        }
+        
+        if (!confirm(confirmMessage)) return;
+        
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        fetch(`/dashboard/reports/${reportId}/resolve/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                card.remove();
+                
+                // Reload if no more reports
+                if (document.querySelectorAll('.resolve-btn').length === 0) {
+                    location.reload();
+                }
+            } else {
+                alert('Error resolving report. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    });
+});
+</script>
 {% endblock %}

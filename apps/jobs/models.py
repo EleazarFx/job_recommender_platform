@@ -113,7 +113,8 @@ class JobVacancy(models.Model):
     experience_level = models.CharField(
         max_length=20,
         choices=ExperienceLevel.choices,
-        default=ExperienceLevel.ENTRY
+        blank=True,
+        null=True
     )
     
     years_of_experience_required = models.PositiveIntegerField(
@@ -127,12 +128,13 @@ class JobVacancy(models.Model):
     location_type = models.CharField(
         max_length=20,
         choices=LocationType.choices,
-        default=LocationType.MALAWI_CITY
+        blank=True,
+        null=True
     )
     
     city = models.CharField(max_length=100, blank=True)
     district = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=100, default='Malawi')
+    country = models.CharField(max_length=100, blank=True)
     
     # For display purposes
     location_display = models.CharField(
@@ -149,7 +151,8 @@ class JobVacancy(models.Model):
     job_type = models.CharField(
         max_length=2,
         choices=JobType.choices,
-        default=JobType.FULL_TIME
+        blank=True,
+        null=True
     )
     
     salary_min = models.DecimalField(
