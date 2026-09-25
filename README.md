@@ -132,7 +132,7 @@ Ensure your production `STATIC_ROOT` and `MEDIA_ROOT` are configured in `config/
 
 ## Contact
 
-If you want help running or deploying the project, open an issue or contact the repository owner.
+If you want help running or deploying the project, open an issue or contact the repository owner (Eleazar Toto).
 
 ---
 
